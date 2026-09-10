@@ -32,8 +32,9 @@
     const app = document.getElementById("app");
     let currentUser = null;
     let currentUserRole = "admin";
-    let currentTab = "fees";
+    let currentTab = "attendance";
     let isDarkMode = localStorage.getItem("vt_dark") === "true";
+    let selectedAttendanceDate = new Date().toISOString().split('T')[0];
 
     if (isDarkMode) document.documentElement.classList.add("dark");
 
@@ -115,7 +116,6 @@
         <main id="tabContent" class="flex-1 p-4 overflow-y-auto"></main>
         <div id="modalSlot"></div>
 
-        <!-- 5 DEDICATED TOOL BUTTONS AT THE BOTTOM -->
         <nav class="fixed bottom-0 left-0 right-0 max-w-xl mx-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-200 dark:border-slate-800 px-1 py-1.5 flex justify-between items-center z-30 no-print">
           ${navButton('fees', 'Fees', '💰')}
           ${navButton('students', 'Students', '👨‍🎓')}
@@ -169,7 +169,7 @@
     }
 
     // ==========================================
-    // TOOL 1: FEES LEDGER (100% UNCHANGED & PRESERVED)
+    // TOOL 1: FEES LEDGER (UNCHANGED)
     // ==========================================
     async function renderFeesTab(container) {
       const currentMonth = new Date().toISOString().slice(0, 7);
@@ -369,7 +369,7 @@
     };
 
     // ==========================================
-    // TOOL 2: STUDENTS DIRECTORY (DEDICATED TOOL)
+    // TOOL 2: STUDENTS DIRECTORY (UNCHANGED)
     // ==========================================
     async function renderStudentsTab(container) {
       const { data: students, error } = await sbClient.from("students").select("*").order("name");
@@ -468,21 +468,19 @@
       if (error) alert("Error: " + error.message);
       else loadTabContent();
     };
-
-    // ==========================================
-    // TOOL 3: ATTENDANCE (DEDICATED TOOL)
+ // ==========================================
+    // TOOL 3: ATTENDANCE (CUSTOM DATE & 3 METRIC BOXES)
     // ==========================================
     async function renderAttendanceTab(container) {
-      const today = new Date().toISOString().split('T')[0];
-
       const { data: students, error: sErr } = await sbClient.from("students").select("*").eq("is_active", true).order("name");
-      const { data: records, error: aErr } = await sbClient.from("attendance").select("*").eq("record_date", today);
+      const { data: records, error: aErr } = await sbClient.from("attendance").select("*").eq("record_date", selectedAttendanceDate);
 
       if (sErr || aErr) {
         container.innerHTML = `<div class="p-4 text-rose-500 text-xs">Error loading attendance: ${(sErr || aErr).message}</div>`;
         return;
       }
 
+      const totalStudents = students?.length || 0;
       const attendanceMap = {};
       (records || []).forEach(r => { attendanceMap[r.student_id] = r.status; });
 
@@ -491,17 +489,32 @@
 
       container.innerHTML = `
         <div class="space-y-4">
-          <div class="flex justify-between items-center">
-            <div>
-              <h3 class="text-xs font-bold uppercase text-slate-400">Daily Roll-Call</h3>
-              <p class="text-xs font-bold text-slate-800 dark:text-white mt-0.5">${today}</p>
+          <!-- 3 SUMMARY BOXES -->
+          <div class="grid grid-cols-3 gap-2 text-center">
+            <div class="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
+              <p class="text-[10px] text-slate-400 font-bold uppercase">Total Students</p>
+              <p class="text-xs font-extrabold text-slate-800 dark:text-white mt-0.5">${totalStudents}</p>
             </div>
-            <div class="flex gap-2">
-              <span class="text-[10px] font-bold px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40">Present: ${presentCount}</span>
-              <span class="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 text-rose-700 dark:bg-rose-950/40">Absent: ${absentCount}</span>
+            <div class="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
+              <p class="text-[10px] text-slate-400 font-bold uppercase">Present</p>
+              <p class="text-xs font-extrabold text-emerald-600 mt-0.5">${presentCount}</p>
+            </div>
+            <div class="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
+              <p class="text-[10px] text-slate-400 font-bold uppercase">Absent</p>
+              <p class="text-xs font-extrabold text-rose-600 mt-0.5">${absentCount}</p>
             </div>
           </div>
 
+          <!-- CUSTOM DATE PICKER -->
+          <div class="bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
+            <div>
+              <span class="text-[10px] font-bold text-slate-400 uppercase block">Select Attendance Date</span>
+              <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400 font-mono">${selectedAttendanceDate}</span>
+            </div>
+            <input type="date" value="${selectedAttendanceDate}" onchange="changeAttendanceDate(this.value)" class="text-xs font-bold p-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+
+          <!-- STUDENTS ROLL CALL LIST -->
           <div class="space-y-2">
             ${(students || []).map(s => {
               const currentStatus = attendanceMap[s.id] || "Unmarked";
@@ -509,13 +522,13 @@
                 <div class="bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex justify-between items-center">
                   <div>
                     <h4 class="font-bold text-slate-800 dark:text-white text-xs">${s.name}</h4>
-                    <p class="text-[10px] text-slate-400">${s.grade_class} • Current: <strong class="${currentStatus === 'Present' ? 'text-emerald-600' : currentStatus === 'Absent' ? 'text-rose-600' : 'text-slate-400'}">${currentStatus}</strong></p>
+                    <p class="text-[10px] text-slate-400">${s.grade_class} • Status: <strong class="${currentStatus === 'Present' ? 'text-emerald-600' : currentStatus === 'Absent' ? 'text-rose-600' : 'text-slate-400'}">${currentStatus}</strong></p>
                   </div>
                   <div class="flex gap-1.5">
-                    <button onclick="setAttendance('${s.id}', '${today}', 'Present', '${s.name}', '${s.parent_mobile}')" class="px-2.5 py-1.5 rounded-xl text-[10px] font-bold ${currentStatus === 'Present' ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}">
+                    <button onclick="setAttendance('${s.id}', '${selectedAttendanceDate}', 'Present', '${s.name}', '${s.parent_mobile}')" class="px-2.5 py-1.5 rounded-xl text-[10px] font-bold ${currentStatus === 'Present' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}">
                       ✅ Present
                     </button>
-                    <button onclick="setAttendance('${s.id}', '${today}', 'Absent', '${s.name}', '${s.parent_mobile}')" class="px-2.5 py-1.5 rounded-xl text-[10px] font-bold ${currentStatus === 'Absent' ? 'bg-rose-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}">
+                    <button onclick="setAttendance('${s.id}', '${selectedAttendanceDate}', 'Absent', '${s.name}', '${s.parent_mobile}')" class="px-2.5 py-1.5 rounded-xl text-[10px] font-bold ${currentStatus === 'Absent' ? 'bg-rose-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}">
                       ❌ Absent
                     </button>
                   </div>
@@ -526,7 +539,14 @@
         </div>
       `;
     }
-window.setAttendance = async (studentId, date, status, name, mobile) => {
+
+    window.changeAttendanceDate = (newDate) => {
+      if (!newDate) return;
+      selectedAttendanceDate = newDate;
+      loadTabContent();
+    };
+
+    window.setAttendance = async (studentId, date, status, name, mobile) => {
       const { error } = await sbClient.from("attendance").upsert(
         { student_id: studentId, record_date: date, status: status },
         { onConflict: 'student_id,record_date' }
@@ -537,75 +557,272 @@ window.setAttendance = async (studentId, date, status, name, mobile) => {
         return;
       }
 
-      if (status === 'Absent' && mobile && confirm(`Send absent alert WhatsApp notice to ${name}'s parent?`)) {
+      if (status === 'Absent' && mobile && confirm(`Send absent WhatsApp alert to ${name}'s parent?`)) {
         const clean = mobile.replace(/[^0-9]/g, "").slice(-10);
-        const msg = encodeURIComponent(`*VIDYATRACK ACADEMY - ATTENDANCE ALERT*\n\nDear Parent,\nThis is to notify you that *${name}* is marked *ABSENT* on ${date}.\n\nIf this was unexpected, please contact the academy office.`);
+        const msg = encodeURIComponent(`*VIDYATRACK ACADEMY - ATTENDANCE ALERT*\n\nDear Parent,\nPlease note that *${name}* is marked *ABSENT* on ${date}.\n\nIf this was unexpected, please contact the academy office.`);
         window.open(`https://wa.me/91${clean}?text=${msg}`, "_blank");
       }
 
       loadTabContent();
     };
-
-    // ==========================================
-    // TOOL 4: MARKS & ACADEMICS (DEDICATED TOOL)
+// ==========================================
+    // TOOL 4: MARKS & ACADEMICS (MULTI-SUBJECT TEST ENTRY & TEST-WISE REPORTS)
     // ==========================================
     async function renderAcademicsTab(container) {
       const { data: students } = await sbClient.from("students").select("id, name, grade_class").eq("is_active", true).order("name");
+      const { data: marks, error } = await sbClient
+        .from("test_marks")
+        .select("*, students(name, grade_class)")
+        .order("created_at", { ascending: false });
+
+      // Group test marks by student_id + test_name
+      const testGroups = {};
+      (marks || []).forEach(m => {
+        const key = `${m.student_id}_${m.test_name}`;
+        if (!testGroups[key]) {
+          testGroups[key] = {
+            studentName: m.students ? m.students.name : 'Unknown',
+            gradeClass: m.students ? m.students.grade_class : '',
+            testName: m.test_name,
+            testDate: m.test_date,
+            studentId: m.student_id,
+            subjects: []
+          };
+        }
+        testGroups[key].subjects.push(m);
+      });
 
       container.innerHTML = `
         <div class="space-y-4">
+          <!-- TOP ACTION HEADER -->
           <div class="flex justify-between items-center">
-            <h3 class="text-xs font-bold uppercase text-slate-400">Record Test Marks</h3>
+            <h3 class="text-xs font-bold uppercase text-slate-400">Academics & Tests</h3>
+            <button onclick="toggleTestEntryModal(true)" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-xs">
+              + Add Test Marks
+            </button>
           </div>
 
-          <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
-            <form id="markEntryForm" onsubmit="handleSaveMark(event)" class="space-y-3 text-xs">
-              <div>
-                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Select Student *</label>
-                <select id="markStudentId" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none">
-                  ${(students || []).map(s => `<option value="${s.id}">${s.name} (${s.grade_class})</option>`).join("")}
-                </select>
+          <!-- TEST-WISE REPORTS SECTION -->
+          <div class="space-y-3">
+            <h4 class="text-[11px] font-bold text-slate-500 uppercase">Test-Wise Academic Reports</h4>
+
+            ${Object.keys(testGroups).length === 0 ? `
+              <div class="p-8 text-center text-xs text-slate-400 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
+                No test marks recorded yet. Tap "+ Add Test Marks" to enter a test with subjects.
+              </div>
+            ` : Object.values(testGroups).map(t => {
+              const totalObtained = t.subjects.reduce((sum, s) => sum + parseFloat(s.obtained_score || 0), 0);
+              const totalMax = t.subjects.reduce((sum, s) => sum + parseFloat(s.max_score || 100), 0);
+              const pct = totalMax > 0 ? ((totalObtained / totalMax) * 100).toFixed(1) : 0;
+              const hasFailed = t.subjects.some(s => parseFloat(s.obtained_score) < parseFloat(s.min_score));
+
+              return `
+                <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
+                  <div class="flex justify-between items-start border-b border-slate-100 dark:border-slate-800 pb-2">
+                    <div>
+                      <h4 class="text-xs font-bold text-slate-800 dark:text-white">${t.testName}</h4>
+                      <p class="text-[10px] text-slate-400">${t.studentName} (${t.gradeClass}) • Date: ${t.testDate || 'N/A'}</p>
+                    </div>
+                    <div class="text-right">
+                      <span class="text-xs font-extrabold ${hasFailed ? 'text-rose-600' : 'text-emerald-600'}">
+                        ${hasFailed ? 'Needs Improvement' : 'Passed'}
+                      </span>
+                      <p class="text-[10px] font-bold text-slate-500">${pct}%</p>
+                    </div>
+                  </div>
+
+                  <!-- SUBJECTS BREAKDOWN TABLE -->
+                  <div class="overflow-x-auto">
+                    <table class="w-full text-left text-[11px]">
+                      <thead>
+                        <tr class="text-slate-400 border-b border-slate-100 dark:border-slate-800 font-bold uppercase text-[9px]">
+                          <th class="py-1">Subject</th>
+                          <th class="py-1 text-center">Min</th>
+                          <th class="py-1 text-center">Max</th>
+                          <th class="py-1 text-center">Obtained</th>
+                          <th class="py-1 text-right">Result</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                        ${t.subjects.map(sub => {
+                          const passed = parseFloat(sub.obtained_score) >= parseFloat(sub.min_score);
+                          return `
+                            <tr>
+                              <td class="py-1.5 font-bold text-slate-700 dark:text-slate-300">${sub.subject}</td>
+                              <td class="py-1.5 text-center text-slate-400">${sub.min_score}</td>
+                              <td class="py-1.5 text-center text-slate-400">${sub.max_score}</td>
+                              <td class="py-1.5 text-center font-bold text-slate-800 dark:text-white">${sub.obtained_score}</td>
+                              <td class="py-1.5 text-right font-bold text-[10px] ${passed ? 'text-emerald-600' : 'text-rose-600'}">
+                                ${passed ? 'Pass' : 'Fail'}
+                              </td>
+                            </tr>
+                          `;
+                        }).join("")}
+                        <tr class="font-extrabold bg-slate-50 dark:bg-slate-800/50">
+                          <td class="py-1.5 px-1 text-slate-800 dark:text-white">TOTAL</td>
+                          <td class="py-1.5 text-center text-slate-400">-</td>
+                          <td class="py-1.5 text-center text-slate-700 dark:text-slate-200">${totalMax}</td>
+                          <td class="py-1.5 text-center text-indigo-600 dark:text-indigo-400">${totalObtained}</td>
+                          <td class="py-1.5 text-right text-indigo-600 dark:text-indigo-400">${pct}%</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+
+          <!-- MODAL: ADD TEST WITH MULTIPLE SUBJECTS -->
+          <div id="testEntryModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-3">
+            <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 w-full max-w-md max-h-[90vh] overflow-y-auto space-y-3 shadow-xl">
+              <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-2">
+                <h3 class="text-xs font-bold uppercase text-slate-800 dark:text-white">Add Multi-Subject Test Marks</h3>
+                <button onclick="toggleTestEntryModal(false)" class="text-slate-400 hover:text-slate-600 text-sm font-bold">✕</button>
               </div>
 
-              <div class="grid grid-cols-2 gap-2">
+              <form id="multiSubjectForm" onsubmit="saveMultiSubjectTest(event)" class="space-y-3 text-xs">
                 <div>
-                  <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Assessment Name *</label>
-                  <input type="text" id="markAssessment" placeholder="e.g. Unit Test 1" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
+                  <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Select Student *</label>
+                  <select id="multiStudentId" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none">
+                    ${(students || []).map(s => `<option value="${s.id}">${s.name} (${s.grade_class})</option>`).join("")}
+                  </select>
                 </div>
-                <div>
-                  <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Subject *</label>
-                  <input type="text" id="markSubject" placeholder="e.g. Mathematics" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
-                </div>
-              </div>
 
-              <div class="grid grid-cols-2 gap-2">
-                <div>
-                  <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Score Obtained *</label>
-                  <input type="number" step="0.5" id="markScore" placeholder="85" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
+                <div class="grid grid-cols-2 gap-2">
+                  <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Test Name *</label>
+                    <input type="text" id="multiTestName" placeholder="e.g. Unit Test 1" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
+                  </div>
+                  <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Test Date *</label>
+                    <input type="date" id="multiTestDate" value="${new Date().toISOString().split('T')[0]}" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
+                  </div>
                 </div>
-                <div>
-                  <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Max Score</label>
-                  <input type="number" id="markMax" value="100" class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
-                </div>
-              </div>
 
-              <button type="submit" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-xs">
-                Save Academic Score
-              </button>
-            </form>
+                <div class="border-t border-slate-200 dark:border-slate-800 pt-2">
+                  <div class="flex justify-between items-center mb-1">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase">Subjects List</span>
+                    <button type="button" onclick="addSubjectRow()" class="text-[10px] font-bold text-indigo-600 hover:text-indigo-700">+ Add Subject</button>
+                  </div>
+                  
+                  <div id="subjectRowsContainer" class="space-y-2">
+                    <!-- Default Initial Row -->
+                    <div class="subject-row bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 grid grid-cols-12 gap-1.5 items-center">
+                      <div class="col-span-5">
+                        <input type="text" placeholder="Subject Name" required class="sub-name w-full p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-xs outline-none" />
+                      </div>
+                      <div class="col-span-2">
+                        <input type="number" placeholder="Min" value="35" required class="sub-min w-full p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-xs outline-none text-center" />
+                      </div>
+                      <div class="col-span-2">
+                        <input type="number" placeholder="Max" value="100" required class="sub-max w-full p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-xs outline-none text-center" />
+                      </div>
+                      <div class="col-span-2">
+                        <input type="number" step="0.5" placeholder="Obtained" required class="sub-obtained w-full p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-xs outline-none text-center font-bold text-indigo-600" />
+                      </div>
+                      <div class="col-span-1 text-center">
+                        <button type="button" onclick="removeSubjectRow(this)" class="text-rose-500 font-bold text-xs">✕</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                  <button type="button" onclick="toggleTestEntryModal(false)" class="flex-1 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl font-bold">Cancel</button>
+                  <button type="submit" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-xs">Save Test</button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       `;
     }
 
-    window.handleSaveMark = async (e) => {
-      e.preventDefault();
-      alert("Marks recorded successfully.");
-      document.getElementById("markScore").value = "";
+    window.toggleTestEntryModal = (show) => {
+      const modal = document.getElementById("testEntryModal");
+      if (modal) modal.classList.toggle("hidden", !show);
     };
 
-    // ==========================================
-    // TOOL 5: REPORTING & PRINTABLE CARDS (DEDICATED TOOL)
+    window.addSubjectRow = () => {
+      const c = document.getElementById("subjectRowsContainer");
+      const row = document.createElement("div");
+      row.className = "subject-row bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 grid grid-cols-12 gap-1.5 items-center";
+      row.innerHTML = `
+        <div class="col-span-5">
+          <input type="text" placeholder="Subject Name" required class="sub-name w-full p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-xs outline-none" />
+        </div>
+        <div class="col-span-2">
+          <input type="number" placeholder="Min" value="35" required class="sub-min w-full p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-xs outline-none text-center" />
+        </div>
+        <div class="col-span-2">
+          <input type="number" placeholder="Max" value="100" required class="sub-max w-full p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-xs outline-none text-center" />
+        </div>
+        <div class="col-span-2">
+          <input type="number" step="0.5" placeholder="Obtained" required class="sub-obtained w-full p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-xs outline-none text-center font-bold text-indigo-600" />
+        </div>
+        <div class="col-span-1 text-center">
+          <button type="button" onclick="removeSubjectRow(this)" class="text-rose-500 font-bold text-xs">✕</button>
+        </div>
+      `;
+      c.appendChild(row);
+    };
+
+    window.removeSubjectRow = (btn) => {
+      const rows = document.querySelectorAll(".subject-row");
+      if (rows.length > 1) {
+        btn.closest(".subject-row").remove();
+      } else {
+        alert("A test must have at least one subject.");
+      }
+    };
+
+    window.saveMultiSubjectTest = async (e) => {
+      e.preventDefault();
+      const studentId = document.getElementById("multiStudentId").value;
+      const testName = document.getElementById("multiTestName").value.trim();
+      const testDate = document.getElementById("multiTestDate").value;
+
+      const rows = document.querySelectorAll(".subject-row");
+      const records = [];
+
+      rows.forEach(r => {
+        const subName = r.querySelector(".sub-name").value.trim();
+        const minVal = parseFloat(r.querySelector(".sub-min").value) || 35;
+        const maxVal = parseFloat(r.querySelector(".sub-max").value) || 100;
+        const obtainedVal = parseFloat(r.querySelector(".sub-obtained").value) || 0;
+
+        if (subName) {
+          records.push({
+            student_id: studentId,
+            test_name: testName,
+            test_date: testDate,
+            subject: subName,
+            min_score: minVal,
+            max_score: maxVal,
+            obtained_score: obtainedVal
+          });
+        }
+      });
+
+      if (records.length === 0) {
+        alert("Please specify at least one subject.");
+        return;
+      }
+
+      const { error } = await sbClient.from("test_marks").upsert(records, { onConflict: "student_id,test_name,subject" });
+
+      if (error) {
+        alert("Error saving test marks: " + error.message);
+        return;
+      }
+
+      alert(`Test '${testName}' with ${records.length} subjects saved successfully!`);
+      toggleTestEntryModal(false);
+      loadTabContent();
+    };
+ // ==========================================
+    // TOOL 5: REPORTING & PRINTABLE CARDS (UNCHANGED)
     // ==========================================
     async function renderReportsTab(container) {
       const { data: students } = await sbClient.from("students").select("id, name, grade_class").eq("is_active", true).order("name");
@@ -695,7 +912,8 @@ window.setAttendance = async (studentId, date, status, name, mobile) => {
         </div>
       `;
     };
-function startApp() {
+
+    function startApp() {
       if (sbClient) {
         sbClient.auth.onAuthStateChange(async (_, session) => {
           currentUser = session ? session.user : null;
