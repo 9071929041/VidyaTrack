@@ -18,6 +18,7 @@
     const app = document.getElementById("app");
 
     let currentUser = null;
+    let currentUserRole = "viewer";
     let currentTab = "dashboard";
     let searchFilter = "";
     let selectedClassFilter = "ALL";
@@ -25,6 +26,20 @@
     let selectedAttendanceDate = new Date().toISOString().split("T")[0];
 
     if (isDarkMode) document.documentElement.classList.add("dark");
+
+    async function fetchUserRole(userId) {
+      try {
+        const { data, error } = await sbClient
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (error || !data) return "teacher";
+        return data.role;
+      } catch {
+        return "teacher";
+      }
+    }
 
     function renderLoginView() {
       app.innerHTML = `
@@ -34,12 +49,12 @@
               <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z"></path></svg>
             </div>
             <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">VidyaTrack</h1>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Classroom Registry & Financial Ledger</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Classroom Registry & RBAC Ledger</p>
           </div>
           <form id="loginForm" class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
             <div>
               <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Email</label>
-              <input type="email" id="loginEmail" required class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="admin@vidyatrack.com" />
+              <input type="email" id="loginEmail" required class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="user@vidyatrack.com" />
             </div>
             <div>
               <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Password</label>
@@ -62,24 +77,38 @@
         const email = document.getElementById("loginEmail").value.trim();
         const password = document.getElementById("loginPassword").value;
 
-        const { error } = await sbClient.auth.signInWithPassword({ email, password });
+        const { data, error } = await sbClient.auth.signInWithPassword({ email, password });
         if (error) {
           err.innerText = error.message;
           err.classList.remove("hidden");
           btn.disabled = false;
           btn.innerText = "Sign In";
+        } else {
+          currentUser = data.user;
+          currentUserRole = await fetchUserRole(currentUser.id);
+          renderMainShell();
+          loadTabContent();
         }
       };
     }
 
     function renderMainShell() {
+      const roleBadgeColor = currentUserRole === 'admin' 
+        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300' 
+        : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300';
+
       app.innerHTML = `
         <header class="bg-white/80 dark:bg-slate-900/80 backdrop-blur border-b border-slate-200 dark:border-slate-800 px-4 py-3 sticky top-0 z-30 flex justify-between items-center">
           <div class="flex items-center gap-2">
             <div class="p-1.5 bg-indigo-600 text-white rounded-lg">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z"></path></svg>
             </div>
-            <h2 class="text-base font-bold text-slate-900 dark:text-white">VidyaTrack</h2>
+            <div>
+              <h2 class="text-base font-bold text-slate-900 dark:text-white leading-tight">VidyaTrack</h2>
+              <span class="text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.2 rounded border ${roleBadgeColor}">
+                ${currentUserRole}
+              </span>
+            </div>
           </div>
           <div class="flex items-center gap-2">
             <button onclick="toggleDarkMode()" class="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white rounded-lg text-xs">
@@ -96,8 +125,8 @@
           ${navButton('students', 'Students', '👨‍🎓')}
           ${navButton('attendance', 'Roll Call', '✅')}
           ${navButton('performance', 'Marks', '📝')}
-          ${navButton('fees', 'Fees', '💰')}
-          ${navButton('reports', 'Reports', '📑')}
+          ${currentUserRole === 'admin' ? navButton('fees', 'Fees', '💰') : ''}
+          ${currentUserRole === 'admin' ? navButton('reports', 'Audit', '📑') : ''}
         </nav>
       `;
     }
@@ -135,8 +164,20 @@
         if (currentTab === "students") await renderStudentsTab(content);
         if (currentTab === "attendance") await renderAttendanceTab(content);
         if (currentTab === "performance") await renderPerformanceTab(content);
-        if (currentTab === "fees") await renderFeesTab(content);
-        if (currentTab === "reports") await renderReportsTab(content);
+        if (currentTab === "fees") {
+          if (currentUserRole !== 'admin') {
+            content.innerHTML = `<div class="p-4 bg-rose-50 text-rose-600 text-xs rounded-xl font-medium">Access Denied: Role 'admin' required.</div>`;
+          } else {
+            await renderFeesTab(content);
+          }
+        }
+        if (currentTab === "reports") {
+          if (currentUserRole !== 'admin') {
+            content.innerHTML = `<div class="p-4 bg-rose-50 text-rose-600 text-xs rounded-xl font-medium">Access Denied: Role 'admin' required.</div>`;
+          } else {
+            await renderReportsTab(content);
+          }
+        }
       } catch (err) {
         content.innerHTML = `<div class="p-4 bg-rose-50 text-rose-600 text-xs rounded-xl font-mono">${err.message}</div>`;
       }
@@ -144,20 +185,27 @@
 
     async function renderDashboardTab(container) {
       const today = new Date().toISOString().split("T")[0];
-      const [studentsRes, attendanceRes, feesRes, birthdaysRes] = await Promise.all([
+      const queries = [
         sbClient.from("students").select("id", { count: "exact" }).eq("is_active", true),
         sbClient.from("attendance").select("id", { count: "exact" }).eq("attendance_date", today).eq("status", "Present"),
-        sbClient.from("view_fee_summary").select("*").limit(1).maybeSingle(),
         sbClient.from("students").select("name, dob").eq("is_active", true)
-      ]);
+      ];
 
-      const totalStudents = studentsRes.count || 0;
-      const presentCount = attendanceRes.count || 0;
-      const collected = feesRes.data ? parseFloat(feesRes.data.total_collected) : 0;
-      const pending = feesRes.data ? parseFloat(feesRes.data.outstanding_balance) : 0;
+      if (currentUserRole === 'admin') {
+        queries.push(sbClient.from("view_fee_summary").select("*").limit(1).maybeSingle());
+      }
+
+      const results = await Promise.all(queries);
+      const totalStudents = results[0].count || 0;
+      const presentCount = results[1].count || 0;
+      const birthdaysRes = results[2].data || [];
+      const feesRes = currentUserRole === 'admin' ? results[3]?.data : null;
+
+      const collected = feesRes ? parseFloat(feesRes.total_collected || 0) : 0;
+      const pending = feesRes ? parseFloat(feesRes.outstanding_balance || 0) : 0;
 
       const currentMonthDay = new Date().toISOString().slice(5, 10);
-      const upcomingBdays = (birthdaysRes.data || []).filter(s => s.dob && s.dob.slice(5, 10) >= currentMonthDay).slice(0, 3);
+      const upcomingBdays = birthdaysRes.filter(s => s.dob && s.dob.slice(5, 10) >= currentMonthDay).slice(0, 3);
 
       container.innerHTML = `
         <div class="space-y-4">
@@ -170,14 +218,16 @@
               <p class="text-[11px] font-semibold text-slate-400 uppercase">Present Today</p>
               <h3 class="text-2xl font-bold text-emerald-600 mt-1">${presentCount}</h3>
             </div>
-            <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
-              <p class="text-[11px] font-semibold text-slate-400 uppercase">Total Collected</p>
-              <h3 class="text-xl font-bold text-slate-800 dark:text-white mt-1">₹${collected.toLocaleString("en-IN")}</h3>
-            </div>
-            <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
-              <p class="text-[11px] font-semibold text-slate-400 uppercase">Outstanding Dues</p>
-              <h3 class="text-xl font-bold text-rose-600 mt-1">₹${pending.toLocaleString("en-IN")}</h3>
-            </div>
+            ${currentUserRole === 'admin' ? `
+              <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
+                <p class="text-[11px] font-semibold text-slate-400 uppercase">Total Collected</p>
+                <h3 class="text-xl font-bold text-slate-800 dark:text-white mt-1">₹${collected.toLocaleString("en-IN")}</h3>
+              </div>
+              <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
+                <p class="text-[11px] font-semibold text-slate-400 uppercase">Outstanding Dues</p>
+                <h3 class="text-xl font-bold text-rose-600 mt-1">₹${pending.toLocaleString("en-IN")}</h3>
+              </div>
+            ` : ''}
           </div>
 
           ${upcomingBdays.length > 0 ? `
@@ -193,10 +243,12 @@
           ` : ''}
 
           <div class="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50 p-4 rounded-2xl">
-            <h4 class="text-xs font-bold text-indigo-900 dark:text-indigo-300 uppercase tracking-wide mb-2">Shortcuts</h4>
+            <h4 class="text-xs font-bold text-indigo-900 dark:text-indigo-300 uppercase tracking-wide mb-2">Actions</h4>
             <div class="grid grid-cols-2 gap-2">
-              <button onclick="openStudentModal()" class="bg-indigo-600 text-white text-xs font-semibold py-2.5 rounded-xl shadow-xs">+ Add Student</button>
-              <button onclick="switchTab('attendance')" class="bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 text-xs font-semibold py-2.5 rounded-xl shadow-xs">Take Attendance</button>
+              ${currentUserRole === 'admin' ? `
+                <button onclick="openStudentModal()" class="bg-indigo-600 text-white text-xs font-semibold py-2.5 rounded-xl shadow-xs">+ Add Student</button>
+              ` : ''}
+              <button onclick="switchTab('attendance')" class="bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 text-xs font-semibold py-2.5 rounded-xl shadow-xs ${currentUserRole !== 'admin' ? 'col-span-2' : ''}">Take Attendance</button>
             </div>
           </div>
         </div>
@@ -209,8 +261,8 @@
 
       const filtered = (students || []).filter(s => {
         const matchQuery = s.name.toLowerCase().includes(searchFilter.toLowerCase()) || 
-                           s.student_id.toLowerCase().includes(searchFilter.toLowerCase()) ||
-                           s.parent_mobile.includes(searchFilter);
+                           (s.student_id && s.student_id.toLowerCase().includes(searchFilter.toLowerCase())) ||
+                           (s.parent_mobile && s.parent_mobile.includes(searchFilter));
         const matchClass = selectedClassFilter === "ALL" || s.grade_class === selectedClassFilter;
         return matchQuery && matchClass;
       });
@@ -222,7 +274,9 @@
           <div class="flex gap-2">
             <input type="text" id="studentSearchInput" placeholder="Search name, ID, phone..." value="${searchFilter}" 
               class="flex-1 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500" />
-            <button onclick="openStudentModal()" class="bg-indigo-600 text-white px-3 py-2 rounded-xl text-xs font-bold shadow-xs">+ New</button>
+            ${currentUserRole === 'admin' ? `
+              <button onclick="openStudentModal()" class="bg-indigo-600 text-white px-3 py-2 rounded-xl text-xs font-bold shadow-xs">+ New</button>
+            ` : ''}
             <button onclick="exportStudentsCSV()" class="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-3 py-2 rounded-xl text-xs font-bold">CSV</button>
           </div>
 
@@ -240,16 +294,22 @@
                   <div>
                     <div class="flex items-center gap-1.5">
                       <h4 class="text-sm font-bold text-slate-800 dark:text-slate-100">${s.name}</h4>
-                      <span class="text-[10px] bg-slate-100 dark:bg-slate-800 font-mono px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-400">${s.student_id}</span>
+                      <span class="text-[10px] bg-slate-100 dark:bg-slate-800 font-mono px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-400">${s.student_id || ''}</span>
                     </div>
                     <p class="text-xs text-slate-400 mt-0.5">${s.grade_class} • Parent: ${s.parent_name}</p>
                   </div>
-                  <button onclick="toggleStudentStatus('${s.id}', ${s.is_active})" class="text-[10px] px-2 py-0.5 rounded-full font-bold ${s.is_active ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50' : 'bg-slate-100 text-slate-400'}">
-                    ${s.is_active ? 'Active' : 'Archived'}
-                  </button>
+                  ${currentUserRole === 'admin' ? `
+                    <button onclick="toggleStudentStatus('${s.id}', ${s.is_active})" class="text-[10px] px-2 py-0.5 rounded-full font-bold ${s.is_active ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50' : 'bg-slate-100 text-slate-400'}">
+                      ${s.is_active ? 'Active' : 'Archived'}
+                    </button>
+                  ` : `
+                    <span class="text-[10px] px-2 py-0.5 rounded-full font-bold ${s.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}">${s.is_active ? 'Active' : 'Archived'}</span>
+                  `}
                 </div>
                 <div class="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex justify-between items-center text-xs">
-                  <span class="font-bold text-slate-700 dark:text-slate-300">Fee: ₹${parseFloat(s.monthly_fee).toLocaleString("en-IN")}</span>
+                  <span class="font-bold text-slate-700 dark:text-slate-300">
+                    ${currentUserRole === 'admin' ? `Fee: ₹${parseFloat(s.monthly_fee || 0).toLocaleString("en-IN")}` : `Class ${s.grade_class}`}
+                  </span>
                   <a href="https://wa.me/91${s.parent_mobile}?text=${encodeURIComponent(`Hello ${s.parent_name}, greetings from VidyaTrack regarding ${s.name}.`)}" target="_blank" class="px-2 py-1 bg-emerald-500 text-white rounded-lg text-[10px] font-bold">WhatsApp</a>
                 </div>
               </div>
@@ -298,7 +358,7 @@
                 <div class="bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 flex justify-between items-center">
                   <div>
                     <p class="text-xs font-bold text-slate-800 dark:text-slate-100">${s.name}</p>
-                    <p class="text-[10px] text-slate-400">${s.grade_class} • ${s.student_id}</p>
+                    <p class="text-[10px] text-slate-400">${s.grade_class} • ${s.student_id || ''}</p>
                   </div>
                   <div class="flex gap-1">
                     ${['Present', 'Absent', 'Late', 'Leave'].map(st => `
@@ -352,7 +412,7 @@
               <div class="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
                 <div class="flex justify-between items-start">
                   <div>
- <h4 class="text-xs font-bold text-slate-800 dark:text-slate-100">${e.exam_name} - ${e.subject}</h4>
+                    <h4 class="text-xs font-bold text-slate-800 dark:text-slate-100">${e.exam_name} - ${e.subject}</h4>
                     <p class="text-[10px] text-slate-400 mt-0.5">${e.grade_class} • Max: ${e.max_marks} | Pass: ${e.pass_marks}</p>
                   </div>
                   <button onclick="openMarksEntryModal('${e.id}', '${e.exam_name}', ${e.max_marks})" class="text-[10px] bg-indigo-50 text-indigo-600 dark:bg-indigo-950 px-2.5 py-1 rounded-lg font-bold">Enter Marks</button>
@@ -388,7 +448,7 @@
                 </div>
 
                 <div class="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-xs">
-                  <span class="font-bold">₹${parseFloat(f.amount_paid).toLocaleString("en-IN")} / ₹${parseFloat(f.amount_due).toLocaleString("en-IN")}</span>
+                  <span class="font-bold">₹${parseFloat(f.amount_paid || 0).toLocaleString("en-IN")} / ₹${parseFloat(f.amount_due || 0).toLocaleString("en-IN")}</span>
                   <div class="flex gap-1.5">
                     <button onclick="recordPaymentModal('${f.id}', ${f.amount_due}, ${f.amount_paid})" class="px-2 py-1 bg-indigo-50 text-indigo-600 dark:bg-indigo-950 rounded-lg text-[10px] font-bold">Pay</button>
                     <a href="https://wa.me/91${f.students?.parent_mobile}?text=${encodeURIComponent(`Reminder: Pending fee balance for ${f.students?.name} is ₹${f.amount_due - f.amount_paid} for billing cycle ${f.month_year}.`)}" target="_blank" class="px-2 py-1 bg-emerald-500 text-white rounded-lg text-[10px] font-bold">Remind</a>
@@ -420,9 +480,9 @@
                   <span class="text-[10px] font-bold ${parseFloat(r.lifetime_attendance_pct) >= 75 ? 'text-emerald-600' : 'text-rose-600'}">${r.lifetime_attendance_pct}% Attendance</span>
                 </div>
                 <div class="flex justify-between text-[11px] text-slate-400">
-                  <span>Billed: ₹${parseFloat(r.total_fees_billed).toLocaleString("en-IN")}</span>
-                  <span>Paid: ₹${parseFloat(r.total_fees_paid).toLocaleString("en-IN")}</span>
-                  <span class="font-bold text-rose-500">Due: ₹${parseFloat(r.current_balance_due).toLocaleString("en-IN")}</span>
+                  <span>Billed: ₹${parseFloat(r.total_fees_billed || 0).toLocaleString("en-IN")}</span>
+                  <span>Paid: ₹${parseFloat(r.total_fees_paid || 0).toLocaleString("en-IN")}</span>
+                  <span class="font-bold text-rose-500">Due: ₹${parseFloat(r.current_balance_due || 0).toLocaleString("en-IN")}</span>
                 </div>
               </div>
             `).join("")}
@@ -430,8 +490,7 @@
         </div>
       `;
     }
-
-    window.openStudentModal = () => {
+window.openStudentModal = () => {
       const slot = document.getElementById("modalSlot") || document.getElementById("tabContent");
       const modal = document.createElement("div");
       modal.className = "fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4";
@@ -480,12 +539,14 @@
           </form>
         </div>
       `;
-slot.appendChild(modal);
+
+      slot.appendChild(modal);
 
       modal.querySelector("#addStudentForm").onsubmit = async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
-        const payload = Object.fromEntries(formData.entries()); payload.student_id = "STU-" + Date.now().toString().slice(-4);
+        const payload = Object.fromEntries(formData.entries());
+        payload.student_id = "STU-" + Date.now().toString().slice(-4);
 
         const { error } = await sbClient.from("students").insert([payload]);
         if (error) {
@@ -546,7 +607,7 @@ slot.appendChild(modal);
       modal.querySelector("#createExamForm").onsubmit = async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
-        const payload = Object.fromEntries(formData.entries()); payload.student_id = "STU-" + Date.now().toString().slice(-4);
+        const payload = Object.fromEntries(formData.entries());
 
         const { error } = await sbClient.from("exams").insert([payload]);
         if (error) {
@@ -583,7 +644,7 @@ slot.appendChild(modal);
                 <div class="flex justify-between items-center bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl text-xs">
                   <div>
                     <p class="font-bold text-slate-800 dark:text-slate-200">${s.name}</p>
-                    <p class="text-[10px] font-mono text-slate-400">${s.student_id}</p>
+                    <p class="text-[10px] font-mono text-slate-400">${s.student_id || ''}</p>
                   </div>
                   <input type="number" data-student="${s.id}" value="${currentScore}" placeholder="Score" max="${maxMarks}" class="student-mark-input w-20 p-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-right font-bold text-slate-900 dark:text-white outline-none" />
                 </div>
@@ -596,7 +657,6 @@ slot.appendChild(modal);
           </div>
         </div>
       `;
-
 slot.appendChild(modal);
 
       modal.querySelector("#saveMarksBtn").onclick = async () => {
@@ -699,7 +759,7 @@ slot.appendChild(modal);
       if (!students || students.length === 0) return alert("No records to export.");
 
       const headers = ["Student ID,Name,Class,Gender,Parent Name,Parent Mobile,Monthly Fee,Status"];
-      const rows = students.map(s => `"${s.student_id}","${s.name}","${s.grade_class}","${s.gender}","${s.parent_name}","${s.parent_mobile}",${s.monthly_fee},${s.is_active ? 'Active' : 'Inactive'}`);
+      const rows = students.map(s => `"${s.student_id || ''}","${s.name}","${s.grade_class}","${s.gender}","${s.parent_name}","${s.parent_mobile}",${s.monthly_fee},${s.is_active ? 'Active' : 'Inactive'}`);
       const csvBlob = new Blob([[...headers, ...rows].join("\n")], { type: "text/csv" });
       const url = URL.createObjectURL(csvBlob);
       const a = document.createElement("a");
@@ -707,7 +767,8 @@ slot.appendChild(modal);
       a.download = `VidyaTrack_Students_${Date.now()}.csv`;
       a.click();
     };
-window.downloadJsonBackup = async () => {
+
+    window.downloadJsonBackup = async () => {
       const [s, a, f] = await Promise.all([
         sbClient.from("students").select("*"),
         sbClient.from("attendance").select("*"),
@@ -730,12 +791,19 @@ window.downloadJsonBackup = async () => {
     }
 
     if (sbClient) {
-      sbClient.auth.onAuthStateChange((_, session) => {
+      sbClient.auth.onAuthStateChange(async (_, session) => {
         currentUser = session ? session.user : null;
+        if (currentUser) {
+          currentUserRole = await fetchUserRole(currentUser.id);
+        }
         renderApp();
       });
-      sbClient.auth.getSession().then(({ data: { session } }) => {
+
+      sbClient.auth.getSession().then(async ({ data: { session } }) => {
         currentUser = session ? session.user : null;
+        if (currentUser) {
+          currentUserRole = await fetchUserRole(currentUser.id);
+        }
         renderApp();
       });
     } else {
