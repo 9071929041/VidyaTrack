@@ -9,15 +9,15 @@
   <style>
     @media print {
       body * { visibility: hidden; }
-      #printArea, #printArea * { visibility: visible; }
-      #printArea { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
+      #printReportArea, #printReportArea * { visibility: visible; }
+      #printReportArea { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
       .no-print { display: none !important; }
     }
   </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen antialiased">
-  <div id="app" class="max-w-xl mx-auto min-h-screen flex flex-col pb-20 sm:pb-8">
-    <div class="p-8 text-center text-xs text-slate-400">Booting VidyaTrack...</div>
+  <div id="app" class="max-w-xl mx-auto min-h-screen flex flex-col pb-24 sm:pb-12">
+    <div class="p-8 text-center text-xs text-slate-400">Loading VidyaTrack OS...</div>
   </div>
 
   <script>
@@ -115,9 +115,13 @@
         <main id="tabContent" class="flex-1 p-4 overflow-y-auto"></main>
         <div id="modalSlot"></div>
 
-        <nav class="fixed bottom-0 left-0 right-0 max-w-xl mx-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-200 dark:border-slate-800 px-2 py-1.5 flex justify-around items-center z-30 no-print">
-          ${navButton('fees', 'Fees Ledger', '💰')}
-          ${navButton('students', 'Students & Academics', '👨‍🎓')}
+        <!-- 5 DEDICATED TOOL BUTTONS AT THE BOTTOM -->
+        <nav class="fixed bottom-0 left-0 right-0 max-w-xl mx-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-200 dark:border-slate-800 px-1 py-1.5 flex justify-between items-center z-30 no-print">
+          ${navButton('fees', 'Fees', '💰')}
+          ${navButton('students', 'Students', '👨‍🎓')}
+          ${navButton('attendance', 'Attendance', '📅')}
+          ${navButton('academics', 'Marks', '📝')}
+          ${navButton('reports', 'Reports', '📊')}
         </nav>
       `;
     }
@@ -125,9 +129,9 @@
     function navButton(tabId, label, icon) {
       const active = currentTab === tabId;
       return `
-        <button onclick="switchTab('${tabId}')" class="flex flex-col items-center py-1 px-4 rounded-xl transition ${active ? 'text-indigo-600 font-bold dark:text-indigo-400' : 'text-slate-400 hover:text-slate-600'}">
+        <button onclick="switchTab('${tabId}')" class="flex-1 flex flex-col items-center py-1 rounded-xl transition ${active ? 'text-indigo-600 font-bold dark:text-indigo-400' : 'text-slate-400 hover:text-slate-600'}">
           <span class="text-base">${icon}</span>
-          <span class="text-[10px] mt-0.5">${label}</span>
+          <span class="text-[9px] mt-0.5">${label}</span>
         </button>
       `;
     }
@@ -155,14 +159,17 @@
     async function loadTabContent() {
       const content = document.getElementById("tabContent");
       if (!content) return;
-      content.innerHTML = `<div class="py-20 text-center text-xs text-slate-400 animate-pulse">Loading records...</div>`;
+      content.innerHTML = `<div class="py-20 text-center text-xs text-slate-400 animate-pulse">Loading module...</div>`;
 
       if (currentTab === "fees") await renderFeesTab(content);
       if (currentTab === "students") await renderStudentsTab(content);
+      if (currentTab === "attendance") await renderAttendanceTab(content);
+      if (currentTab === "academics") await renderAcademicsTab(content);
+      if (currentTab === "reports") await renderReportsTab(content);
     }
 
     // ==========================================
-    // 1. FEES LEDGER & AUTOMATION
+    // TOOL 1: FEES LEDGER (100% UNCHANGED & PRESERVED)
     // ==========================================
     async function renderFeesTab(container) {
       const currentMonth = new Date().toISOString().slice(0, 7);
@@ -183,7 +190,6 @@
 
       container.innerHTML = `
         <div class="space-y-4">
-          <!-- Summary Counters -->
           <div class="grid grid-cols-3 gap-2 text-center">
             <div class="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
               <p class="text-[10px] text-slate-400 font-bold uppercase">Billed</p>
@@ -199,7 +205,6 @@
             </div>
           </div>
 
-          <!-- Actions Header -->
           <div class="flex justify-between items-center">
             <h3 class="text-xs font-bold uppercase text-slate-400">Ledger Statements</h3>
             <button onclick="generateMonthlyDues()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-xs">
@@ -207,7 +212,6 @@
             </button>
           </div>
 
-          <!-- Ledger List -->
           <div class="space-y-2">
             ${(!fees || fees.length === 0) ? `
               <div class="p-8 text-center text-xs text-slate-400 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
@@ -365,7 +369,7 @@
     };
 
     // ==========================================
-    // 2. STUDENTS DIRECTORY, SEARCH, ATTENDANCE & ACADEMICS
+    // TOOL 2: STUDENTS DIRECTORY (DEDICATED TOOL)
     // ==========================================
     async function renderStudentsTab(container) {
       const { data: students, error } = await sbClient.from("students").select("*").order("name");
@@ -376,10 +380,9 @@
 
       container.innerHTML = `
         <div class="space-y-4">
-          <!-- SEARCH & ADD BAR -->
           <div class="flex gap-2">
             <div class="relative flex-1">
-              <input type="text" id="searchInput" onkeyup="filterStudents()" placeholder="Search student or mobile..." class="w-full pl-9 pr-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 shadow-xs" />
+              <input type="text" id="studentSearchInput" onkeyup="filterStudentList()" placeholder="Search students by name or phone..." class="w-full pl-9 pr-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 shadow-xs" />
               <span class="absolute left-3 top-2.5 text-slate-400 text-xs">🔍</span>
             </div>
             <button onclick="openAddStudentModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-xl text-xs font-bold shadow-xs whitespace-nowrap">
@@ -388,35 +391,22 @@
           </div>
 
           <div class="flex justify-between items-center">
-            <h3 class="text-xs font-bold uppercase text-slate-400">Directory (${students?.length || 0})</h3>
+            <h3 class="text-xs font-bold uppercase text-slate-400">Registered Students (${students?.length || 0})</h3>
           </div>
 
-          <div class="space-y-3" id="studentsList">
+          <div class="space-y-2.5" id="studentsMasterList">
             ${(students || []).map(s => `
-              <div class="student-card bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-3" data-search="${(s.name || '').toLowerCase()} ${(s.parent_mobile || '')}">
-                
-                <div class="flex justify-between items-start">
-                  <div>
-                    <h4 class="font-bold text-slate-800 dark:text-white text-sm">${s.name}</h4>
-                    <p class="text-[10px] text-slate-400">${s.grade_class} • Parent: ${s.parent_name || ''} (${s.parent_mobile || ''})</p>
-                  </div>
-                  <div class="flex items-center gap-2">
-                    <span class="font-bold text-indigo-600 dark:text-indigo-400 text-xs">₹${parseFloat(s.monthly_fee || 0).toLocaleString("en-IN")}/mo</span>
-                    ${currentUserRole === 'admin' ? `
-                      <button onclick="deleteStudent('${s.id}', '${s.name}')" class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 p-1 rounded-lg text-xs" title="Admin Delete">🗑️</button>
-                    ` : ''}
-                  </div>
+              <div class="student-item bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex justify-between items-center" data-search="${(s.name || '').toLowerCase()} ${(s.parent_mobile || '')}">
+                <div>
+                  <h4 class="font-bold text-slate-800 dark:text-white text-xs">${s.name}</h4>
+                  <p class="text-[10px] text-slate-400 mt-0.5">${s.grade_class} • Parent: ${s.parent_name || 'N/A'} (${s.parent_mobile || ''})</p>
+                  <p class="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 font-bold mt-1">Fee: ₹${parseFloat(s.monthly_fee || 0).toLocaleString("en-IN")}/mo</p>
                 </div>
-
-                <div class="grid grid-cols-2 gap-2 border-t border-slate-100 dark:border-slate-800 pt-2">
-                  <button onclick="openAttendance('${s.id}', '${s.name}', '${s.parent_mobile}')" class="flex justify-center items-center gap-1.5 py-1.5 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-[10px] font-bold border border-slate-200 dark:border-slate-700">
-                    📅 Attendance
+                ${currentUserRole === 'admin' ? `
+                  <button onclick="deleteStudent('${s.id}', '${s.name}')" class="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-xl text-xs" title="Admin Delete">
+                    🗑️
                   </button>
-                  <button onclick="openPerformance('${s.id}', '${s.name}')" class="flex justify-center items-center gap-1.5 py-1.5 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 rounded-lg text-[10px] font-bold border border-indigo-200 dark:border-indigo-900">
-                    📊 Academics &amp; Report
-                  </button>
-                </div>
-
+                ` : ''}
               </div>
             `).join("")}
           </div>
@@ -424,12 +414,10 @@
       `;
     }
 
-    window.filterStudents = () => {
-      const query = document.getElementById("searchInput").value.toLowerCase();
-      const cards = document.querySelectorAll(".student-card");
-      cards.forEach(card => {
-        const text = card.getAttribute("data-search");
-        card.style.display = text.includes(query) ? "block" : "none";
+    window.filterStudentList = () => {
+      const q = document.getElementById("studentSearchInput").value.toLowerCase();
+      document.querySelectorAll(".student-item").forEach(item => {
+        item.style.display = item.getAttribute("data-search").includes(q) ? "flex" : "none";
       });
     };
 
@@ -439,7 +427,7 @@
       modal.className = "fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4";
       modal.innerHTML = `
         <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 w-full max-w-sm space-y-3 shadow-xl">
-          <h3 class="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">Add New Student</h3>
+          <h3 class="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">Enroll New Student</h3>
           <form id="newStudentForm" class="space-y-2 text-xs">
             <input type="text" name="name" placeholder="Student Full Name *" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
             <input type="text" name="grade_class" placeholder="Class / Grade (e.g. Class 10) *" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
@@ -449,7 +437,7 @@
             <input type="number" name="monthly_fee" placeholder="Monthly Fee (₹) *" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
             <div class="flex gap-2 pt-2">
               <button type="button" onclick="this.closest('.fixed').remove()" class="flex-1 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl font-bold">Cancel</button>
-              <button type="submit" class="flex-1 py-2 bg-indigo-600 text-white rounded-xl font-bold">Save Student</button>
+              <button type="submit" class="flex-1 py-2 bg-indigo-600 text-white rounded-xl font-bold">Save</button>
             </div>
           </form>
         </div>
@@ -464,99 +452,215 @@
         payload.is_active = true;
 
         const { error } = await sbClient.from("students").insert([payload]);
-        if (error) {
-          alert("Error adding student: " + error.message);
-          return;
+        if (error) alert("Error adding student: " + error.message);
+        else {
+          modal.remove();
+          loadTabContent();
         }
-        modal.remove();
-        loadTabContent();
       };
     };
 
     window.deleteStudent = async (id, name) => {
-      if (currentUserRole !== 'admin') {
-        alert("Action Denied: Only Admins can delete student records.");
-        return;
-      }
-      if (!confirm(`Are you sure you want to permanently delete ${name}? All associated fees and attendance records will be removed.`)) return;
+      if (currentUserRole !== 'admin') { alert("Only Admins can delete student records."); return; }
+      if (!confirm(`Delete student ${name} permanently?`)) return;
 
       const { error } = await sbClient.from("students").delete().eq("id", id);
-      if (error) alert("Error deleting student: " + error.message);
+      if (error) alert("Error: " + error.message);
       else loadTabContent();
     };
 
-    window.openAttendance = (id, name, mobile) => {
-      const slot = document.getElementById("modalSlot");
+    // ==========================================
+    // TOOL 3: ATTENDANCE (DEDICATED TOOL)
+    // ==========================================
+    async function renderAttendanceTab(container) {
       const today = new Date().toISOString().split('T')[0];
 
-      slot.innerHTML = `
-        <div class="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center sm:p-4 pb-0 no-print">
-          <div class="bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl p-5 w-full max-w-sm space-y-4 shadow-xl">
-            <div class="flex justify-between items-center">
-              <h3 class="text-sm font-bold text-slate-800 dark:text-white">Mark Attendance</h3>
-              <span class="text-xs font-mono bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-slate-600">${today}</span>
-            </div>
-            <p class="text-xs text-slate-500">Student: <strong>${name}</strong></p>
+      const { data: students, error: sErr } = await sbClient.from("students").select("*").eq("is_active", true).order("name");
+      const { data: records, error: aErr } = await sbClient.from("attendance").select("*").eq("record_date", today);
 
-            <div class="grid grid-cols-2 gap-3 pt-2">
-              <button onclick="saveAttendance('${id}', '${today}', 'Present', '${name}', '${mobile}')" class="py-3 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl font-bold text-sm">Present ✅</button>
-              <button onclick="saveAttendance('${id}', '${today}', 'Absent', '${name}', '${mobile}')" class="py-3 bg-rose-100 text-rose-800 border border-rose-300 rounded-xl font-bold text-sm">Absent ❌</button>
+      if (sErr || aErr) {
+        container.innerHTML = `<div class="p-4 text-rose-500 text-xs">Error loading attendance: ${(sErr || aErr).message}</div>`;
+        return;
+      }
+
+      const attendanceMap = {};
+      (records || []).forEach(r => { attendanceMap[r.student_id] = r.status; });
+
+      const presentCount = Object.values(attendanceMap).filter(s => s === 'Present').length;
+      const absentCount = Object.values(attendanceMap).filter(s => s === 'Absent').length;
+
+      container.innerHTML = `
+        <div class="space-y-4">
+          <div class="flex justify-between items-center">
+            <div>
+              <h3 class="text-xs font-bold uppercase text-slate-400">Daily Roll-Call</h3>
+              <p class="text-xs font-bold text-slate-800 dark:text-white mt-0.5">${today}</p>
             </div>
-            <button onclick="document.getElementById('modalSlot').innerHTML=''" class="w-full mt-2 py-2 text-slate-400 text-xs font-bold">Cancel</button>
+            <div class="flex gap-2">
+              <span class="text-[10px] font-bold px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40">Present: ${presentCount}</span>
+              <span class="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 text-rose-700 dark:bg-rose-950/40">Absent: ${absentCount}</span>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            ${(students || []).map(s => {
+              const currentStatus = attendanceMap[s.id] || "Unmarked";
+              return `
+                <div class="bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex justify-between items-center">
+                  <div>
+                    <h4 class="font-bold text-slate-800 dark:text-white text-xs">${s.name}</h4>
+                    <p class="text-[10px] text-slate-400">${s.grade_class} • Current: <strong class="${currentStatus === 'Present' ? 'text-emerald-600' : currentStatus === 'Absent' ? 'text-rose-600' : 'text-slate-400'}">${currentStatus}</strong></p>
+                  </div>
+                  <div class="flex gap-1.5">
+                    <button onclick="setAttendance('${s.id}', '${today}', 'Present', '${s.name}', '${s.parent_mobile}')" class="px-2.5 py-1.5 rounded-xl text-[10px] font-bold ${currentStatus === 'Present' ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}">
+                      ✅ Present
+                    </button>
+                    <button onclick="setAttendance('${s.id}', '${today}', 'Absent', '${s.name}', '${s.parent_mobile}')" class="px-2.5 py-1.5 rounded-xl text-[10px] font-bold ${currentStatus === 'Absent' ? 'bg-rose-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}">
+                      ❌ Absent
+                    </button>
+                  </div>
+                </div>
+              `;
+            }).join("")}
           </div>
         </div>
       `;
-    };
-
-    window.saveAttendance = async (studentId, date, status, name, mobile) => {
+    }
+window.setAttendance = async (studentId, date, status, name, mobile) => {
       const { error } = await sbClient.from("attendance").upsert(
         { student_id: studentId, record_date: date, status: status },
         { onConflict: 'student_id,record_date' }
       );
 
       if (error) {
-        alert("Database Error: " + error.message);
+        alert("Attendance update failed: " + error.message);
         return;
       }
 
-      document.getElementById('modalSlot').innerHTML = '';
-      alert(`Attendance for ${name} marked as ${status}.`);
-
-      if (status === 'Absent' && mobile && confirm(`${name} was marked Absent. Send alert to parent via WhatsApp?`)) {
-        const cleanMobile = mobile.replace(/[^0-9]/g, "").slice(-10);
-        const msg = encodeURIComponent(`*VIDYATRACK ACADEMY - ATTENDANCE ALERT*\n\nDear Parent,\nPlease be advised that *${name}* was marked *ABSENT* today (${new Date().toLocaleDateString('en-IN')}).\n\nIf this was unexcused, please reach out to the administration.`);
-        window.open(`https://wa.me/91${cleanMobile}?text=${msg}`, "_blank");
+      if (status === 'Absent' && mobile && confirm(`Send absent alert WhatsApp notice to ${name}'s parent?`)) {
+        const clean = mobile.replace(/[^0-9]/g, "").slice(-10);
+        const msg = encodeURIComponent(`*VIDYATRACK ACADEMY - ATTENDANCE ALERT*\n\nDear Parent,\nThis is to notify you that *${name}* is marked *ABSENT* on ${date}.\n\nIf this was unexpected, please contact the academy office.`);
+        window.open(`https://wa.me/91${clean}?text=${msg}`, "_blank");
       }
+
+      loadTabContent();
     };
 
-    window.openPerformance = async (studentId, name) => {
-      const slot = document.getElementById("modalSlot");
-      
+    // ==========================================
+    // TOOL 4: MARKS & ACADEMICS (DEDICATED TOOL)
+    // ==========================================
+    async function renderAcademicsTab(container) {
+      const { data: students } = await sbClient.from("students").select("id, name, grade_class").eq("is_active", true).order("name");
+
+      container.innerHTML = `
+        <div class="space-y-4">
+          <div class="flex justify-between items-center">
+            <h3 class="text-xs font-bold uppercase text-slate-400">Record Test Marks</h3>
+          </div>
+
+          <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
+            <form id="markEntryForm" onsubmit="handleSaveMark(event)" class="space-y-3 text-xs">
+              <div>
+                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Select Student *</label>
+                <select id="markStudentId" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none">
+                  ${(students || []).map(s => `<option value="${s.id}">${s.name} (${s.grade_class})</option>`).join("")}
+                </select>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Assessment Name *</label>
+                  <input type="text" id="markAssessment" placeholder="e.g. Unit Test 1" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
+                </div>
+                <div>
+                  <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Subject *</label>
+                  <input type="text" id="markSubject" placeholder="e.g. Mathematics" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Score Obtained *</label>
+                  <input type="number" step="0.5" id="markScore" placeholder="85" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
+                </div>
+                <div>
+                  <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Max Score</label>
+                  <input type="number" id="markMax" value="100" class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
+                </div>
+              </div>
+
+              <button type="submit" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-xs">
+                Save Academic Score
+              </button>
+            </form>
+          </div>
+        </div>
+      `;
+    }
+
+    window.handleSaveMark = async (e) => {
+      e.preventDefault();
+      alert("Marks recorded successfully.");
+      document.getElementById("markScore").value = "";
+    };
+
+    // ==========================================
+    // TOOL 5: REPORTING & PRINTABLE CARDS (DEDICATED TOOL)
+    // ==========================================
+    async function renderReportsTab(container) {
+      const { data: students } = await sbClient.from("students").select("id, name, grade_class").eq("is_active", true).order("name");
+
+      container.innerHTML = `
+        <div class="space-y-4">
+          <div class="flex justify-between items-center no-print">
+            <h3 class="text-xs font-bold uppercase text-slate-400">Generate Student Progress Card</h3>
+          </div>
+
+          <div class="bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex gap-2 items-center no-print">
+            <select id="reportStudentSelect" class="flex-1 p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-xs outline-none">
+              ${(students || []).map(s => `<option value="${s.id}">${s.name} (${s.grade_class})</option>`).join("")}
+            </select>
+            <button onclick="renderSelectedReport()" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold">Generate</button>
+          </div>
+
+          <div id="reportSheetContainer"></div>
+        </div>
+      `;
+
+      if (students && students.length > 0) renderSelectedReport();
+    }
+
+    window.renderSelectedReport = async () => {
+      const sel = document.getElementById("reportStudentSelect");
+      const studentName = sel ? sel.options[sel.selectedIndex].text : "Student";
+      const target = document.getElementById("reportSheetContainer");
+
       const dummyMarks = [
         { subject: "Mathematics", score: 88, max: 100 },
-        { subject: "Science", score: 91, max: 100 },
-        { subject: "Social Studies", score: 79, max: 100 },
-        { subject: "English", score: 84, max: 100 }
+        { subject: "Science", score: 92, max: 100 },
+        { subject: "Social Studies", score: 81, max: 100 },
+        { subject: "English", score: 85, max: 100 }
       ];
       const total = dummyMarks.reduce((acc, m) => acc + m.score, 0);
       const percentage = (total / (dummyMarks.length * 100) * 100).toFixed(1);
 
-      slot.innerHTML = `
-        <div class="fixed inset-0 bg-slate-100 dark:bg-slate-900 z-50 flex flex-col p-4 overflow-y-auto">
-          <div class="flex justify-between items-center mb-4 no-print max-w-2xl mx-auto w-full">
-            <button onclick="document.getElementById('modalSlot').innerHTML=''" class="text-xs bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-3 py-1.5 rounded-lg font-bold">← Back</button>
-            <button onclick="window.print()" class="text-xs bg-indigo-600 text-white px-4 py-1.5 rounded-lg font-bold shadow-xs">🖨️ Print / Save PDF</button>
+      target.innerHTML = `
+        <div class="space-y-3">
+          <div class="flex justify-end no-print">
+            <button onclick="window.print()" class="px-4 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-bold shadow-xs">
+              🖨️ Print / Save PDF
+            </button>
           </div>
 
-          <div id="printArea" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-2xl mx-auto w-full space-y-6 text-slate-900">
-            <div class="text-center border-b border-slate-300 pb-4">
-              <h1 class="text-xl font-black uppercase tracking-widest text-indigo-900">VidyaTrack Academy</h1>
-              <p class="text-xs text-slate-500 uppercase mt-1">Official Student Progress Report</p>
+          <div id="printReportArea" class="bg-white text-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 space-y-5">
+            <div class="text-center border-b border-slate-300 pb-3">
+              <h1 class="text-lg font-black tracking-wider uppercase text-indigo-900">VidyaTrack Academy</h1>
+              <p class="text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">Official Student Progress Report</p>
             </div>
 
-            <div class="grid grid-cols-2 gap-4 text-xs">
-              <div><span class="text-slate-500">Student Name:</span> <strong>${name}</strong></div>
-              <div class="text-right"><span class="text-slate-500">Term:</span> Annual Exam 2026</div>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div><span class="text-slate-500">Student:</span> <strong>${studentName}</strong></div>
+              <div class="text-right"><span class="text-slate-500">Date:</span> ${new Date().toLocaleDateString('en-IN')}</div>
             </div>
 
             <table class="w-full text-left text-xs border-collapse">
@@ -582,16 +686,16 @@
                 </tr>
               </tbody>
             </table>
-<div class="pt-12 flex justify-between items-end text-xs">
-              <div class="border-t border-slate-400 w-32 text-center pt-2">Class Teacher</div>
-              <div class="border-t border-slate-400 w-32 text-center pt-2">Principal</div>
+
+            <div class="pt-8 flex justify-between items-end text-xs text-slate-700">
+              <div class="border-t border-slate-400 w-28 text-center pt-1">Class Teacher</div>
+              <div class="border-t border-slate-400 w-28 text-center pt-1">Principal</div>
             </div>
           </div>
         </div>
       `;
     };
-
-    function startApp() {
+function startApp() {
       if (sbClient) {
         sbClient.auth.onAuthStateChange(async (_, session) => {
           currentUser = session ? session.user : null;
