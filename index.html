@@ -18,12 +18,9 @@
     const app = document.getElementById("app");
 
     let currentUser = null;
-    let currentUserRole = "viewer";
-    let currentTab = "dashboard";
-    let searchFilter = "";
-    let selectedClassFilter = "ALL";
+    let currentUserRole = "admin";
+    let currentTab = "fees";
     let isDarkMode = localStorage.getItem("vt_dark") === "true";
-    let selectedAttendanceDate = new Date().toISOString().split("T")[0];
 
     if (isDarkMode) document.documentElement.classList.add("dark");
 
@@ -34,10 +31,10 @@
           .select("role")
           .eq("user_id", userId)
           .maybeSingle();
-        if (error || !data) return "teacher";
+        if (error || !data) return "admin";
         return data.role;
       } catch {
-        return "teacher";
+        return "admin";
       }
     }
 
@@ -49,12 +46,12 @@
               <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z"></path></svg>
             </div>
             <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">VidyaTrack</h1>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Classroom Registry & RBAC Ledger</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Classroom Registry &amp; Ledger OS</p>
           </div>
           <form id="loginForm" class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
             <div>
               <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Email</label>
-              <input type="email" id="loginEmail" required class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="user@vidyatrack.com" />
+              <input type="email" id="loginEmail" required class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="admin@vidyatrack.com" />
             </div>
             <div>
               <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Password</label>
@@ -71,7 +68,7 @@
         const btn = document.getElementById("loginBtn");
         const err = document.getElementById("authError");
         btn.disabled = true;
-        btn.innerText = "Authenticating...";
+        btn.innerText = "Signing in...";
         err.classList.add("hidden");
 
         const email = document.getElementById("loginEmail").value.trim();
@@ -93,10 +90,6 @@
     }
 
     function renderMainShell() {
-      const roleBadgeColor = currentUserRole === 'admin' 
-        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300' 
-        : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300';
-
       app.innerHTML = `
         <header class="bg-white/80 dark:bg-slate-900/80 backdrop-blur border-b border-slate-200 dark:border-slate-800 px-4 py-3 sticky top-0 z-30 flex justify-between items-center">
           <div class="flex items-center gap-2">
@@ -105,13 +98,13 @@
             </div>
             <div>
               <h2 class="text-base font-bold text-slate-900 dark:text-white leading-tight">VidyaTrack</h2>
-              <span class="text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.2 rounded border ${roleBadgeColor}">
+              <span class="text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.2 rounded border bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300">
                 ${currentUserRole}
               </span>
             </div>
           </div>
           <div class="flex items-center gap-2">
-            <button onclick="toggleDarkMode()" class="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white rounded-lg text-xs">
+            <button onclick="toggleDarkMode()" class="p-2 text-slate-500 rounded-lg text-xs">
               ${isDarkMode ? '☀️' : '🌙'}
             </button>
             <button onclick="sbClient.auth.signOut()" class="text-xs px-2.5 py-1 bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 rounded-lg font-medium">Exit</button>
@@ -121,12 +114,8 @@
         <main id="tabContent" class="flex-1 p-4 overflow-y-auto"></main>
 
         <nav class="fixed bottom-0 left-0 right-0 max-w-xl mx-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-200 dark:border-slate-800 px-2 py-1.5 flex justify-around items-center z-30">
-          ${navButton('dashboard', 'Overview', '📊')}
+          ${navButton('fees', 'Fees Ledger', '💰')}
           ${navButton('students', 'Students', '👨‍🎓')}
-          ${navButton('attendance', 'Roll Call', '✅')}
-          ${navButton('performance', 'Marks', '📝')}
-          ${currentUserRole === 'admin' ? navButton('fees', 'Fees', '💰') : ''}
-          ${currentUserRole === 'admin' ? navButton('reports', 'Audit', '📑') : ''}
         </nav>
       `;
     }
@@ -134,7 +123,7 @@
     function navButton(tabId, label, icon) {
       const active = currentTab === tabId;
       return `
-        <button onclick="switchTab('${tabId}')" class="flex flex-col items-center py-1 px-2 rounded-xl transition ${active ? 'text-indigo-600 font-bold dark:text-indigo-400' : 'text-slate-400 hover:text-slate-600'}">
+        <button onclick="switchTab('${tabId}')" class="flex flex-col items-center py-1 px-4 rounded-xl transition ${active ? 'text-indigo-600 font-bold dark:text-indigo-400' : 'text-slate-400 hover:text-slate-600'}">
           <span class="text-base">${icon}</span>
           <span class="text-[10px] mt-0.5">${label}</span>
         </button>
@@ -157,99 +146,101 @@
 
     async function loadTabContent() {
       const content = document.getElementById("tabContent");
-      content.innerHTML = `<div class="py-20 text-center text-xs text-slate-400 animate-pulse">Syncing data...</div>`;
+      content.innerHTML = `<div class="py-20 text-center text-xs text-slate-400 animate-pulse">Loading data...</div>`;
 
-      try {
-        if (currentTab === "dashboard") await renderDashboardTab(content);
-        if (currentTab === "students") await renderStudentsTab(content);
-        if (currentTab === "attendance") await renderAttendanceTab(content);
-        if (currentTab === "performance") await renderPerformanceTab(content);
-        if (currentTab === "fees") {
-          if (currentUserRole !== 'admin') {
-            content.innerHTML = `<div class="p-4 bg-rose-50 text-rose-600 text-xs rounded-xl font-medium">Access Denied: Role 'admin' required.</div>`;
-          } else {
-            await renderFeesTab(content);
-          }
-        }
-        if (currentTab === "reports") {
-          if (currentUserRole !== 'admin') {
-            content.innerHTML = `<div class="p-4 bg-rose-50 text-rose-600 text-xs rounded-xl font-medium">Access Denied: Role 'admin' required.</div>`;
-          } else {
-            await renderReportsTab(content);
-          }
-        }
-      } catch (err) {
-        content.innerHTML = `<div class="p-4 bg-rose-50 text-rose-600 text-xs rounded-xl font-mono">${err.message}</div>`;
-      }
+      if (currentTab === "fees") await renderFeesTab(content);
+      if (currentTab === "students") await renderStudentsTab(content);
     }
 
-    async function renderDashboardTab(container) {
-      const today = new Date().toISOString().split("T")[0];
-      const queries = [
-        sbClient.from("students").select("id", { count: "exact" }).eq("is_active", true),
-        sbClient.from("attendance").select("id", { count: "exact" }).eq("attendance_date", today).eq("status", "Present"),
-        sbClient.from("students").select("name, dob").eq("is_active", true)
-      ];
+    async function renderFeesTab(container) {
+      const currentMonth = new Date().toISOString().slice(0, 7);
 
-      if (currentUserRole === 'admin') {
-        queries.push(sbClient.from("view_fee_summary").select("*").limit(1).maybeSingle());
+      const { data: fees, error } = await sbClient
+        .from("fees")
+        .select("*, students(name, student_id, parent_mobile, parent_name, grade_class)")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        container.innerHTML = `<div class="p-4 bg-rose-50 text-rose-600 text-xs rounded-xl font-mono">${error.message}</div>`;
+        return;
       }
 
-      const results = await Promise.all(queries);
-      const totalStudents = results[0].count || 0;
-      const presentCount = results[1].count || 0;
-      const birthdaysRes = results[2].data || [];
-      const feesRes = currentUserRole === 'admin' ? results[3]?.data : null;
-
-      const collected = feesRes ? parseFloat(feesRes.total_collected || 0) : 0;
-      const pending = feesRes ? parseFloat(feesRes.outstanding_balance || 0) : 0;
-
-      const currentMonthDay = new Date().toISOString().slice(5, 10);
-      const upcomingBdays = birthdaysRes.filter(s => s.dob && s.dob.slice(5, 10) >= currentMonthDay).slice(0, 3);
+      const totalBilled = (fees || []).reduce((acc, f) => acc + parseFloat(f.amount_due || 0), 0);
+      const totalCollected = (fees || []).reduce((acc, f) => acc + parseFloat(f.amount_paid || 0), 0);
+      const totalPending = totalBilled - totalCollected;
 
       container.innerHTML = `
         <div class="space-y-4">
-          <div class="grid grid-cols-2 gap-3">
-            <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
-              <p class="text-[11px] font-semibold text-slate-400 uppercase">Active Enrolled</p>
-              <h3 class="text-2xl font-bold text-slate-800 dark:text-white mt-1">${totalStudents}</h3>
+          <div class="grid grid-cols-3 gap-2 text-center">
+            <div class="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
+              <p class="text-[10px] text-slate-400 font-bold uppercase">Billed</p>
+              <p class="text-xs font-extrabold text-slate-800 dark:text-white mt-0.5">₹${totalBilled.toLocaleString("en-IN")}</p>
             </div>
-            <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
-              <p class="text-[11px] font-semibold text-slate-400 uppercase">Present Today</p>
-              <h3 class="text-2xl font-bold text-emerald-600 mt-1">${presentCount}</h3>
+            <div class="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
+              <p class="text-[10px] text-slate-400 font-bold uppercase">Collected</p>
+              <p class="text-xs font-extrabold text-emerald-600 mt-0.5">₹${totalCollected.toLocaleString("en-IN")}</p>
             </div>
-            ${currentUserRole === 'admin' ? `
-              <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
-                <p class="text-[11px] font-semibold text-slate-400 uppercase">Total Collected</p>
-                <h3 class="text-xl font-bold text-slate-800 dark:text-white mt-1">₹${collected.toLocaleString("en-IN")}</h3>
-              </div>
-              <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
-                <p class="text-[11px] font-semibold text-slate-400 uppercase">Outstanding Dues</p>
-                <h3 class="text-xl font-bold text-rose-600 mt-1">₹${pending.toLocaleString("en-IN")}</h3>
-              </div>
-            ` : ''}
+            <div class="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
+              <p class="text-[10px] text-slate-400 font-bold uppercase">Pending</p>
+              <p class="text-xs font-extrabold text-rose-600 mt-0.5">₹${totalPending.toLocaleString("en-IN")}</p>
+            </div>
           </div>
 
-          ${upcomingBdays.length > 0 ? `
-            <div class="bg-gradient-to-r from-amber-500/10 to-amber-600/10 border border-amber-500/20 p-3.5 rounded-2xl flex items-center justify-between">
-              <div class="flex items-center gap-2.5">
-                <span class="text-xl">🎂</span>
-                <div>
-                  <p class="text-xs font-bold text-amber-800 dark:text-amber-300">Upcoming Birthdays</p>
-                  <p class="text-[11px] text-amber-700/80 dark:text-amber-400">${upcomingBdays.map(b => b.name).join(", ")}</p>
-                </div>
-              </div>
-            </div>
-          ` : ''}
+          <div class="flex justify-between items-center">
+            <h3 class="text-xs font-bold uppercase text-slate-400">Ledger Statements</h3>
+            <button onclick="generateMonthlyDues()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-xs">
+              ⚡ Generate Invoices (${currentMonth})
+            </button>
+          </div>
 
-          <div class="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50 p-4 rounded-2xl">
-            <h4 class="text-xs font-bold text-indigo-900 dark:text-indigo-300 uppercase tracking-wide mb-2">Actions</h4>
-            <div class="grid grid-cols-2 gap-2">
-              ${currentUserRole === 'admin' ? `
-                <button onclick="openStudentModal()" class="bg-indigo-600 text-white text-xs font-semibold py-2.5 rounded-xl shadow-xs">+ Add Student</button>
-              ` : ''}
-              <button onclick="switchTab('attendance')" class="bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 text-xs font-semibold py-2.5 rounded-xl shadow-xs ${currentUserRole !== 'admin' ? 'col-span-2' : ''}">Take Attendance</button>
-            </div>
+          <div class="space-y-2">
+            ${(!fees || fees.length === 0) ? `
+              <div class="p-8 text-center text-xs text-slate-400 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
+                No fee records found. Tap "Generate Invoices" above.
+              </div>
+            ` : fees.map(f => {
+              const balance = parseFloat(f.amount_due) - parseFloat(f.amount_paid);
+              const student = f.students || {};
+              const isPaid = f.status === 'Paid';
+
+              return `
+                <div class="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-2.5">
+                  <div class="flex justify-between items-start">
+                    <div>
+                      <h4 class="text-xs font-bold text-slate-800 dark:text-slate-100">${student.name || 'Unknown'}</h4>
+                      <p class="text-[10px] text-slate-400 font-mono">${student.grade_class || ''} • Cycle: ${f.month_year}</p>
+                    </div>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      isPaid ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50' : 
+                      f.status === 'Partial' ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/50' : 
+                      'bg-rose-50 text-rose-600 dark:bg-rose-950/50'
+                    }">
+                      ${f.status}
+                    </span>
+                  </div>
+
+                  <div class="flex justify-between items-center text-xs pt-1 border-t border-slate-100 dark:border-slate-800">
+                    <div>
+                      <span class="font-extrabold text-slate-800 dark:text-slate-200">₹${parseFloat(f.amount_paid).toLocaleString("en-IN")}</span>
+                      <span class="text-[11px] text-slate-400">/ ₹${parseFloat(f.amount_due).toLocaleString("en-IN")}</span>
+                      ${balance > 0 ? `<span class="block text-[10px] text-rose-500 font-bold">Due: ₹${balance.toLocaleString("en-IN")}</span>` : ''}
+                    </div>
+
+                    <div class="flex gap-1.5 items-center">
+                      ${!isPaid ? `
+                        <button onclick="openPaymentModal('${f.id}', ${f.amount_due}, ${f.amount_paid})" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-bold">
+                          Collect
+                        </button>
+                      ` : ''}
+
+                      <button onclick="sendWhatsAppNotice('${f.id}', '${student.name || ''}', '${student.parent_mobile || ''}', '${student.parent_name || ''}', '${f.month_year}', ${f.amount_due}, ${f.amount_paid}, '${f.receipt_no || ''}', '${f.status}')" class="px-2 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-[10px] font-bold flex items-center gap-1">
+                        <span>💬</span> ${isPaid ? 'Receipt' : 'Reminder'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join("")}
           </div>
         </div>
         <div id="modalSlot"></div>
@@ -257,281 +248,176 @@
     }
 
     async function renderStudentsTab(container) {
-      const { data: students } = await sbClient.from("students").select("*").order("created_at", { ascending: false });
-
-      const filtered = (students || []).filter(s => {
-        const matchQuery = s.name.toLowerCase().includes(searchFilter.toLowerCase()) || 
-                           (s.student_id && s.student_id.toLowerCase().includes(searchFilter.toLowerCase())) ||
-                           (s.parent_mobile && s.parent_mobile.includes(searchFilter));
-        const matchClass = selectedClassFilter === "ALL" || s.grade_class === selectedClassFilter;
-        return matchQuery && matchClass;
-      });
-
-      const uniqueClasses = Array.from(new Set((students || []).map(s => s.grade_class)));
+      const { data: students, error } = await sbClient.from("students").select("*").order("name");
+      if (error) {
+        container.innerHTML = `<div class="p-4 bg-rose-50 text-rose-600 text-xs rounded-xl font-mono">${error.message}</div>`;
+        return;
+      }
 
       container.innerHTML = `
         <div class="space-y-3">
-          <div class="flex gap-2">
-            <input type="text" id="studentSearchInput" placeholder="Search name, ID, phone..." value="${searchFilter}" 
-              class="flex-1 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500" />
-            ${currentUserRole === 'admin' ? `
-              <button onclick="openStudentModal()" class="bg-indigo-600 text-white px-3 py-2 rounded-xl text-xs font-bold shadow-xs">+ New</button>
-            ` : ''}
-            <button onclick="exportStudentsCSV()" class="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-3 py-2 rounded-xl text-xs font-bold">CSV</button>
+          <div class="flex justify-between items-center">
+            <h3 class="text-xs font-bold uppercase text-slate-400">Student Directory (${students?.length || 0})</h3>
+            <button onclick="openAddStudentModal()" class="bg-indigo-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold">+ New Student</button>
           </div>
-
-          <div class="flex gap-1.5 overflow-x-auto pb-1 text-[11px]">
-            <button onclick="filterByClass('ALL')" class="px-2.5 py-1 rounded-lg ${selectedClassFilter === 'ALL' ? 'bg-indigo-600 text-white font-bold' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800'}">All</button>
-            ${uniqueClasses.map(c => `
-              <button onclick="filterByClass('${c}')" class="px-2.5 py-1 whitespace-nowrap rounded-lg ${selectedClassFilter === c ? 'bg-indigo-600 text-white font-bold' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800'}">${c}</button>
-            `).join("")}
-          </div>
-
           <div class="space-y-2">
-            ${filtered.map(s => `
-              <div class="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
-                <div class="flex justify-between items-start">
-                  <div>
-                    <div class="flex items-center gap-1.5">
-                      <h4 class="text-sm font-bold text-slate-800 dark:text-slate-100">${s.name}</h4>
-                      <span class="text-[10px] bg-slate-100 dark:bg-slate-800 font-mono px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-400">${s.student_id || ''}</span>
-                    </div>
-                    <p class="text-xs text-slate-400 mt-0.5">${s.grade_class} • Parent: ${s.parent_name}</p>
-                  </div>
-                  ${currentUserRole === 'admin' ? `
-                    <button onclick="toggleStudentStatus('${s.id}', ${s.is_active})" class="text-[10px] px-2 py-0.5 rounded-full font-bold ${s.is_active ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50' : 'bg-slate-100 text-slate-400'}">
-                      ${s.is_active ? 'Active' : 'Archived'}
-                    </button>
-                  ` : `
-                    <span class="text-[10px] px-2 py-0.5 rounded-full font-bold ${s.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}">${s.is_active ? 'Active' : 'Archived'}</span>
-                  `}
+            ${(students || []).map(s => `
+              <div class="bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 flex justify-between items-center text-xs">
+                <div>
+                  <h4 class="font-bold text-slate-800 dark:text-white">${s.name}</h4>
+                  <p class="text-[10px] text-slate-400">${s.grade_class} • Parent: ${s.parent_name} (${s.parent_mobile})</p>
                 </div>
-                <div class="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex justify-between items-center text-xs">
-                  <span class="font-bold text-slate-700 dark:text-slate-300">
-                    ${currentUserRole === 'admin' ? `Fee: ₹${parseFloat(s.monthly_fee || 0).toLocaleString("en-IN")}` : `Class ${s.grade_class}`}
-                  </span>
-                  <a href="https://wa.me/91${s.parent_mobile}?text=${encodeURIComponent(`Hello ${s.parent_name}, greetings from VidyaTrack regarding ${s.name}.`)}" target="_blank" class="px-2 py-1 bg-emerald-500 text-white rounded-lg text-[10px] font-bold">WhatsApp</a>
-                </div>
+                <span class="font-bold text-indigo-600 dark:text-indigo-400">₹${parseFloat(s.monthly_fee || 0).toLocaleString("en-IN")}/mo</span>
               </div>
             `).join("")}
           </div>
         </div>
         <div id="modalSlot"></div>
       `;
-
-      document.getElementById("studentSearchInput").oninput = (e) => {
-        searchFilter = e.target.value;
-        renderStudentsTab(container);
-      };
     }
 
-    window.filterByClass = (className) => {
-      selectedClassFilter = className;
-      renderStudentsTab(document.getElementById("tabContent"));
-    };
+    window.openPaymentModal = (feeId, amountDue, amountPaid) => {
+      const balance = amountDue - amountPaid;
+      const slot = document.getElementById("modalSlot") || document.getElementById("tabContent");
+      const modal = document.createElement("div");
+      modal.className = "fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4";
 
-    async function renderAttendanceTab(container) {
-      const [studentsRes, attendanceRes] = await Promise.all([
-        sbClient.from("students").select("id, name, student_id, grade_class").eq("is_active", true).order("name"),
-        sbClient.from("attendance").select("*").eq("attendance_date", selectedAttendanceDate)
-      ]);
-
-      const students = studentsRes.data || [];
-      const attendanceMap = new Map((attendanceRes.data || []).map(a => [a.student_id, a.status]));
-
-      container.innerHTML = `
-        <div class="space-y-3">
-          <div class="bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 flex justify-between items-center">
+      modal.innerHTML = `
+        <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 w-full max-w-xs space-y-3 shadow-xl">
+          <h3 class="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">Record Fee Payment</h3>
+          <p class="text-xs text-slate-400">Remaining Due: <strong class="text-rose-500">₹${balance.toLocaleString("en-IN")}</strong></p>
+          
+          <form id="payForm" class="space-y-3 text-xs">
             <div>
-              <label class="block text-[10px] font-bold uppercase text-slate-400">Registry Date</label>
-              <input type="date" id="attDate" value="${selectedAttendanceDate}" class="text-xs font-bold bg-transparent outline-none text-slate-800 dark:text-white" />
+              <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Payment Amount (₹) *</label>
+              <input type="number" id="payAmount" min="1" max="${balance}" value="${balance}" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 font-bold text-slate-900 dark:text-white outline-none" />
             </div>
-            <div class="text-right text-xs">
-              <span class="text-emerald-600 font-bold">${Array.from(attendanceMap.values()).filter(v => v === 'Present').length} Present</span> / ${students.length}
+            <div>
+              <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Payment Mode</label>
+              <select id="payMode" class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none">
+                <option value="Cash">Cash</option>
+                <option value="UPI">UPI (GPay / PhonePe / Paytm)</option>
+                <option value="Bank Transfer">Bank Transfer / IMPS</option>
+              </select>
             </div>
-          </div>
-
-          <div class="space-y-2">
-            ${students.map(s => {
-              const status = attendanceMap.get(s.id) || "Unmarked";
-              return `
-                <div class="bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                  <div>
-                    <p class="text-xs font-bold text-slate-800 dark:text-slate-100">${s.name}</p>
-                    <p class="text-[10px] text-slate-400">${s.grade_class} • ${s.student_id || ''}</p>
-                  </div>
-                  <div class="flex gap-1">
-                    ${['Present', 'Absent', 'Late', 'Leave'].map(st => `
-                      <button onclick="saveAttendance('${s.id}', '${st}')" class="px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${status === st ? getStatusBadgeClass(st) : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}">
-                        ${st[0]}
-                      </button>
-                    `).join("")}
-                  </div>
-                </div>
-              `;
-            }).join("")}
-          </div>
+            <div class="flex gap-2 pt-1">
+              <button type="button" onclick="this.closest('.fixed').remove()" class="flex-1 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl font-bold">Cancel</button>
+              <button type="submit" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold">Save Receipt</button>
+            </div>
+          </form>
         </div>
       `;
+      slot.appendChild(modal);
 
-      document.getElementById("attDate").onchange = (e) => {
-        selectedAttendanceDate = e.target.value;
-        renderAttendanceTab(container);
+      modal.querySelector("#payForm").onsubmit = async (e) => {
+        e.preventDefault();
+        const collected = parseFloat(document.getElementById("payAmount").value);
+        const mode = document.getElementById("payMode").value;
+        const newPaid = amountPaid + collected;
+        const newStatus = newPaid >= amountDue ? 'Paid' : newPaid > 0 ? 'Partial' : 'Pending';
+        const generatedReceipt = "REC-" + new Date().getFullYear() + "-" + Math.floor(1000 + Math.random() * 9000);
+
+        const { error } = await sbClient.from("fees").update({
+          amount_paid: newPaid,
+          status: newStatus,
+          payment_mode: mode,
+          receipt_no: generatedReceipt,
+          paid_at: new Date().toISOString()
+        }).eq("id", feeId);
+
+        if (error) {
+          alert("Failed to record payment: " + error.message);
+          return;
+        }
+
+        modal.remove();
+        loadTabContent();
       };
-    }
-
-    function getStatusBadgeClass(status) {
-      if (status === 'Present') return 'bg-emerald-600 text-white shadow-xs';
-      if (status === 'Absent') return 'bg-rose-600 text-white shadow-xs';
-      if (status === 'Late') return 'bg-amber-500 text-white shadow-xs';
-      return 'bg-blue-600 text-white shadow-xs';
-    }
-
-    window.saveAttendance = async (studentId, status) => {
-      await sbClient.from("attendance").upsert({
-        student_id: studentId,
-        attendance_date: selectedAttendanceDate,
-        status: status
-      }, { onConflict: "student_id,attendance_date" });
-
-      renderAttendanceTab(document.getElementById("tabContent"));
     };
 
-    async function renderPerformanceTab(container) {
-      const { data: exams } = await sbClient.from("exams").select("*").order("exam_date", { ascending: false });
+    window.sendWhatsAppNotice = (feeId, studentName, mobile, parentName, cycle, due, paid, receiptNo, status) => {
+      if (!mobile || mobile.trim() === "") {
+        alert("No mobile number registered for this parent.");
+        return;
+      }
 
-      container.innerHTML = `
-        <div class="space-y-3">
-          <div class="flex justify-between items-center">
-            <h3 class="text-sm font-bold text-slate-800 dark:text-white">Exam Scorecards</h3>
-            <button onclick="openExamModal()" class="bg-indigo-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold">+ Create Test</button>
-          </div>
+      const cleanMobile = mobile.replace(/[^0-9]/g, "").slice(-10);
+      const balance = due - paid;
+      let message = "";
 
-          <div class="space-y-2">
-            ${(exams || []).map(e => `
-              <div class="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
-                <div class="flex justify-between items-start">
-                  <div>
-                    <h4 class="text-xs font-bold text-slate-800 dark:text-slate-100">${e.exam_name} - ${e.subject}</h4>
-                    <p class="text-[10px] text-slate-400 mt-0.5">${e.grade_class} • Max: ${e.max_marks} | Pass: ${e.pass_marks}</p>
-                  </div>
-                  <button onclick="openMarksEntryModal('${e.id}', '${e.exam_name}', ${e.max_marks})" class="text-[10px] bg-indigo-50 text-indigo-600 dark:bg-indigo-950 px-2.5 py-1 rounded-lg font-bold">Enter Marks</button>
-                </div>
-              </div>
-            `).join("")}
-          </div>
-        </div>
-        <div id="modalSlot"></div>
-      `;
-    }
+      if (status === "Paid") {
+        message = 
+`*VIDYATRACK ACADEMY - FEE RECEIPT*
+----------------------------------------
+*Receipt No:* ${receiptNo || 'REC-' + Date.now().toString().slice(-4)}
+*Date:* ${new Date().toLocaleDateString('en-IN')}
+*Student Name:* ${studentName}
+*Billing Cycle:* ${cycle}
 
-    async function renderFeesTab(container) {
-      const currentMonth = new Date().toISOString().slice(0, 7);
-      const { data: fees } = await sbClient.from("fees").select("*, students(name, student_id, parent_mobile, parent_name)").order("created_at", { ascending: false });
+*Amount Received:* ₹${paid.toLocaleString("en-IN")}
+*Status:* Fully Settled (PAID) ✅
 
-      container.innerHTML = `
-        <div class="space-y-3">
-          <div class="flex justify-between items-center">
-            <h3 class="text-sm font-bold text-slate-800 dark:text-white">Fee Statements</h3>
-            <button onclick="generateMonthlyDues()" class="bg-indigo-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold">Generate ${currentMonth}</button>
-          </div>
+Thank you, ${parentName || 'Parent'}, for your prompt payment!`;
+      } else {
+        message = 
+`*VIDYATRACK ACADEMY - FEE REMINDER*
+----------------------------------------
+Dear ${parentName || 'Parent'},
+This is a gentle reminder regarding tuition dues for *${studentName}*.
 
-          <div class="space-y-2">
-            ${(fees || []).map(f => `
-              <div class="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
-                <div class="flex justify-between items-start">
-                  <div>
-                    <h4 class="text-xs font-bold text-slate-800 dark:text-slate-100">${f.students?.name}</h4>
-                    <p class="text-[10px] text-slate-400 font-mono">Cycle: ${f.month_year}</p>
-                  </div>
-                  <span class="text-[10px] px-2 py-0.5 rounded-full font-bold ${f.status === 'Paid' ? 'bg-emerald-50 text-emerald-600' : f.status === 'Partial' ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-rose-600'}">${f.status}</span>
-                </div>
+*Billing Cycle:* ${cycle}
+*Total Fee:* ₹${due.toLocaleString("en-IN")}
+*Paid so far:* ₹${paid.toLocaleString("en-IN")}
+*Outstanding Balance:* ₹${balance.toLocaleString("en-IN")} ⚠️
 
-                <div class="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-xs">
-                  <span class="font-bold">₹${parseFloat(f.amount_paid || 0).toLocaleString("en-IN")} / ₹${parseFloat(f.amount_due || 0).toLocaleString("en-IN")}</span>
-                  <div class="flex gap-1.5">
-                    <button onclick="recordPaymentModal('${f.id}', ${f.amount_due}, ${f.amount_paid})" class="px-2 py-1 bg-indigo-50 text-indigo-600 dark:bg-indigo-950 rounded-lg text-[10px] font-bold">Pay</button>
-                    <a href="https://wa.me/91${f.students?.parent_mobile}?text=${encodeURIComponent(`Reminder: Pending fee balance for ${f.students?.name} is ₹${f.amount_due - f.amount_paid} for billing cycle ${f.month_year}.`)}" target="_blank" class="px-2 py-1 bg-emerald-500 text-white rounded-lg text-[10px] font-bold">Remind</a>
-                  </div>
-                </div>
-              </div>
-            `).join("")}
-          </div>
-        </div>
-        <div id="modalSlot"></div>
-      `;
-    }
+Kindly arrange for the balance settlement at your earliest convenience. Thank you!`;
+      }
 
-    async function renderReportsTab(container) {
-      const { data: studentsReport } = await sbClient.from("view_student_detailed_report").select("*");
+      const encoded = encodeURIComponent(message);
+      window.open(`https://wa.me/91${cleanMobile}?text=${encoded}`, "_blank");
+    };
 
-      container.innerHTML = `
-        <div class="space-y-3">
-          <div class="flex justify-between items-center">
-            <h3 class="text-sm font-bold text-slate-800 dark:text-white">Student 360° Audits</h3>
-            <button onclick="downloadJsonBackup()" class="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2.5 py-1 rounded-lg text-xs font-bold">Backup JSON</button>
-          </div>
+    window.generateMonthlyDues = async () => {
+      const monthYear = prompt("Enter billing cycle (YYYY-MM):", new Date().toISOString().slice(0, 7));
+      if (!monthYear) return;
 
-          <div class="space-y-2">
-            ${(studentsReport || []).map(r => `
-              <div class="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-2">
-                <div class="flex justify-between items-center">
-                  <p class="text-xs font-bold text-slate-800 dark:text-slate-100">${r.name}</p>
-                  <span class="text-[10px] font-bold ${parseFloat(r.lifetime_attendance_pct) >= 75 ? 'text-emerald-600' : 'text-rose-600'}">${r.lifetime_attendance_pct}% Attendance</span>
-                </div>
-                <div class="flex justify-between text-[11px] text-slate-400">
-                  <span>Billed: ₹${parseFloat(r.total_fees_billed || 0).toLocaleString("en-IN")}</span>
-                  <span>Paid: ₹${parseFloat(r.total_fees_paid || 0).toLocaleString("en-IN")}</span>
-                  <span class="font-bold text-rose-500">Due: ₹${parseFloat(r.current_balance_due || 0).toLocaleString("en-IN")}</span>
-                </div>
-              </div>
-            `).join("")}
-          </div>
-        </div>
-      `;
-    }
-window.openStudentModal = () => {
+      const { data: students, error: sErr } = await sbClient.from("students").select("id, monthly_fee").eq("is_active", true);
+      if (sErr || !students || students.length === 0) {
+        alert("No active students found to bill.");
+        return;
+      }
+
+      const records = students.map(s => ({
+        student_id: s.id,
+        month_year: monthYear,
+        amount_due: s.monthly_fee || 0,
+        amount_paid: 0.00,
+        status: 'Pending'
+      }));
+
+      const { error } = await sbClient.from("fees").upser(records, { onConflict: "student_id,month_year" });
+      if (error) {
+        alert("Error generating dues: " + error.message);
+      } else {
+        alert("Invoices created for " + monthYear);
+        loadTabContent();
+      }
+    };
+
+    window.openAddStudentModal = () => {
       const slot = document.getElementById("modalSlot") || document.getElementById("tabContent");
       const modal = document.createElement("div");
       modal.className = "fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4";
       modal.innerHTML = `
-        <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto space-y-3">
-          <h3 class="text-sm font-bold text-slate-800 dark:text-white">Add New Student</h3>
-          <form id="addStudentForm" class="space-y-2.5 text-xs">
-            <div>
-              <label class="text-[10px] text-slate-400 font-bold uppercase">Full Name *</label>
-              <input type="text" name="name" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
-            </div>
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label class="text-[10px] text-slate-400 font-bold uppercase">Class/Grade *</label>
-                <input type="text" name="grade_class" placeholder="Class 10" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
-              </div>
-              <div>
-                <label class="text-[10px] text-slate-400 font-bold uppercase">Gender</label>
-                <select name="gender" class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none">
-                  <option>Male</option><option>Female</option><option>Other</option>
-                </select>
-              </div>
-            </div>
-            <div>
-              <label class="text-[10px] text-slate-400 font-bold uppercase">Date of Birth *</label>
-              <input type="date" name="dob" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
-            </div>
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label class="text-[10px] text-slate-400 font-bold uppercase">Parent Name *</label>
-                <input type="text" name="parent_name" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
-              </div>
-              <div>
-                <label class="text-[10px] text-slate-400 font-bold uppercase">Parent Mobile (10-digit) *</label>
-                <input type="tel" name="parent_mobile" pattern="[0-9]{10}" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
-              </div>
-            </div>
-            <div>
-              <label class="text-[10px] text-slate-400 font-bold uppercase">Agreed Monthly Fee (₹) *</label>
-              <input type="number" name="monthly_fee" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
-            </div>
+        <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 w-full max-w-sm space-y-3">
+          <h3 class="text-xs font-bold text-slate-800 dark:text-white uppercase">Add New Student</h3>
+          <form id="newStudentForm" class="space-y-2 text-xs">
+            <input type="text" name="name" placeholder="Student Full Name *" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
+            <input type="text" name="grade_class" placeholder="Class / Grade (e.g. Class 10) *" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
+            <input type="date" name="dob" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
+            <input type="text" name="parent_name" placeholder="Parent Name *" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
+            <input type="tel" name="parent_mobile" pattern="[0-9]{10}" placeholder="Parent Mobile (10 digits) *" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
+            <input type="number" name="monthly_fee" placeholder="Monthly Fee (₹) *" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
             <div class="flex gap-2 pt-2">
               <button type="button" onclick="this.closest('.fixed').remove()" class="flex-1 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl font-bold">Cancel</button>
               <button type="submit" class="flex-1 py-2 bg-indigo-600 text-white rounded-xl font-bold">Save Student</button>
@@ -539,14 +425,14 @@ window.openStudentModal = () => {
           </form>
         </div>
       `;
-
       slot.appendChild(modal);
 
-      modal.querySelector("#addStudentForm").onsubmit = async (e) => {
+      modal.querySelector("#newStudentForm").onsubmit = async (e) => {
         e.preventDefault();
-        const formData = new FormData(e.target);
-        const payload = Object.fromEntries(formData.entries());
+        const fd = new FormData(e.target);
+        const payload = Object.fromEntries(fd.entries());
         payload.student_id = "STU-" + Date.now().toString().slice(-4);
+        payload.is_active = true;
 
         const { error } = await sbClient.from("students").insert([payload]);
         if (error) {
@@ -556,230 +442,6 @@ window.openStudentModal = () => {
         modal.remove();
         loadTabContent();
       };
-    };
-
-    window.openExamModal = () => {
-      const slot = document.getElementById("modalSlot") || document.getElementById("tabContent");
-      const modal = document.createElement("div");
-      modal.className = "fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4";
-      modal.innerHTML = `
-        <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 w-full max-w-sm space-y-3">
-          <h3 class="text-sm font-bold text-slate-800 dark:text-white">Create New Exam / Test</h3>
-          <form id="createExamForm" class="space-y-2.5 text-xs">
-            <div>
-              <label class="text-[10px] text-slate-400 font-bold uppercase">Exam Title *</label>
-              <input type="text" name="exam_name" placeholder="e.g. Unit Test 1" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
-            </div>
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label class="text-[10px] text-slate-400 font-bold uppercase">Class/Grade *</label>
-                <input type="text" name="grade_class" placeholder="Class 10" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
-              </div>
-              <div>
-                <label class="text-[10px] text-slate-400 font-bold uppercase">Subject *</label>
-                <input type="text" name="subject" placeholder="Mathematics" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
-              </div>
-            </div>
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label class="text-[10px] text-slate-400 font-bold uppercase">Max Marks *</label>
-                <input type="number" name="max_marks" value="100" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
-              </div>
-              <div>
-                <label class="text-[10px] text-slate-400 font-bold uppercase">Pass Cutoff *</label>
-                <input type="number" name="pass_marks" value="35" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
-              </div>
-            </div>
-            <div>
-              <label class="text-[10px] text-slate-400 font-bold uppercase">Date Conducted</label>
-              <input type="date" name="exam_date" value="${new Date().toISOString().split("T")[0]}" class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
-            </div>
-            <div class="flex gap-2 pt-2">
-              <button type="button" onclick="this.closest('.fixed').remove()" class="flex-1 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl font-bold">Cancel</button>
-              <button type="submit" class="flex-1 py-2 bg-indigo-600 text-white rounded-xl font-bold">Save Exam</button>
-            </div>
-          </form>
-        </div>
-      `;
-
-      slot.appendChild(modal);
-
-      modal.querySelector("#createExamForm").onsubmit = async (e) => {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const payload = Object.fromEntries(formData.entries());
-
-        const { error } = await sbClient.from("exams").insert([payload]);
-        if (error) {
-          alert("Error: " + error.message);
-          return;
-        }
-        modal.remove();
-        loadTabContent();
-      };
-    };
-
-    window.openMarksEntryModal = async (examId, examName, maxMarks) => {
-      const slot = document.getElementById("modalSlot") || document.getElementById("tabContent");
-      const [studentsRes, marksRes] = await Promise.all([
-        sbClient.from("students").select("id, name, student_id").eq("is_active", true).order("name"),
-        sbClient.from("student_marks").select("*").eq("exam_id", examId)
-      ]);
-
-      const students = studentsRes.data || [];
-      const marksMap = new Map((marksRes.data || []).map(m => [m.student_id, m.marks_obtained]));
-
-      const modal = document.createElement("div");
-      modal.className = "fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4";
-      modal.innerHTML = `
-        <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 w-full max-w-sm max-h-[85vh] flex flex-col space-y-3">
-          <div>
-            <h3 class="text-sm font-bold text-slate-800 dark:text-white">Record Marks: ${examName}</h3>
-            <p class="text-[10px] text-slate-400">Maximum Marks: ${maxMarks}</p>
-          </div>
-          <div class="flex-1 overflow-y-auto space-y-2 py-1">
-            ${students.map(s => {
-              const currentScore = marksMap.get(s.id) ?? "";
-              return `
-                <div class="flex justify-between items-center bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl text-xs">
-                  <div>
-                    <p class="font-bold text-slate-800 dark:text-slate-200">${s.name}</p>
-                    <p class="text-[10px] font-mono text-slate-400">${s.student_id || ''}</p>
-                  </div>
-                  <input type="number" data-student="${s.id}" value="${currentScore}" placeholder="Score" max="${maxMarks}" class="student-mark-input w-20 p-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-right font-bold text-slate-900 dark:text-white outline-none" />
-                </div>
-              `;
-            }).join("")}
-          </div>
-          <div class="flex gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <button type="button" onclick="this.closest('.fixed').remove()" class="flex-1 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl text-xs font-bold">Cancel</button>
-            <button type="button" id="saveMarksBtn" class="flex-1 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold">Save All</button>
-          </div>
-        </div>
-      `;
-slot.appendChild(modal);
-
-      modal.querySelector("#saveMarksBtn").onclick = async () => {
-        const inputs = modal.querySelectorAll(".student-mark-input");
-        const records = [];
-
-        inputs.forEach(input => {
-          const val = input.value.trim();
-          if (val !== "") {
-            records.push({
-              exam_id: examId,
-              student_id: input.dataset.student,
-              marks_obtained: parseFloat(val)
-            });
-          }
-        });
-
-        if (records.length > 0) {
-          const { error } = await sbClient.from("student_marks").upsert(records, { onConflict: "exam_id,student_id" });
-          if (error) {
-            alert("Error saving marks: " + error.message);
-            return;
-          }
-        }
-        modal.remove();
-        loadTabContent();
-      };
-    };
-
-    window.recordPaymentModal = (feeId, due, paid) => {
-      const balance = due - paid;
-      const slot = document.getElementById("modalSlot") || document.getElementById("tabContent");
-      const modal = document.createElement("div");
-      modal.className = "fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4";
-      modal.innerHTML = `
-        <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 w-full max-w-xs space-y-3">
-          <h3 class="text-sm font-bold text-slate-800 dark:text-white">Record Fee Payment</h3>
-          <p class="text-xs text-slate-400">Balance Pending: ₹${balance}</p>
-          <form id="payForm" class="space-y-3">
-            <div>
-              <label class="text-[10px] font-bold text-slate-400 uppercase">Amount Received (₹)</label>
-              <input type="number" id="payAmount" max="${balance}" value="${balance}" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-bold outline-none" />
-            </div>
-            <div class="flex gap-2">
-              <button type="button" onclick="this.closest('.fixed').remove()" class="flex-1 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl text-xs font-bold">Cancel</button>
-              <button type="submit" class="flex-1 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold">Confirm</button>
-            </div>
-          </form>
-        </div>
-      `;
-      slot.appendChild(modal);
-
-      modal.querySelector("#payForm").onsubmit = async (e) => {
-        e.preventDefault();
-        const addPay = parseFloat(document.getElementById("payAmount").value);
-        const newPaid = paid + addPay;
-        const newStatus = newPaid >= due ? 'Paid' : newPaid > 0 ? 'Partial' : 'Pending';
-
-        await sbClient.from("fees").update({
-          amount_paid: newPaid,
-          status: newStatus,
-          receipt_no: `REC-${Date.now().toString().slice(-4)}`,
-          paid_at: new Date().toISOString()
-        }).eq("id", feeId);
-
-        modal.remove();
-        loadTabContent();
-      };
-    };
-
-    window.generateMonthlyDues = async () => {
-      const monthYear = prompt("Enter billing cycle (YYYY-MM):", new Date().toISOString().slice(0, 7));
-      if (!monthYear) return;
-
-      const { data: students } = await sbClient.from("students").select("id, monthly_fee").eq("is_active", true);
-
-      const records = (students || []).map(s => ({
-        student_id: s.id,
-        month_year: monthYear,
-        amount_due: s.monthly_fee,
-        amount_paid: 0.00,
-        status: 'Pending'
-      }));
-
-      const { error } = await sbClient.from("fees").upsert(records, { onConflict: "student_id,month_year" });
-      if (error) alert("Error: " + error.message);
-      else {
-        alert("Dues generated for " + monthYear);
-        loadTabContent();
-      }
-    };
-
-    window.toggleStudentStatus = async (id, currentStatus) => {
-      await sbClient.from("students").update({ is_active: !currentStatus }).eq("id", id);
-      loadTabContent();
-    };
-
-    window.exportStudentsCSV = async () => {
-      const { data: students } = await sbClient.from("students").select("*");
-      if (!students || students.length === 0) return alert("No records to export.");
-
-      const headers = ["Student ID,Name,Class,Gender,Parent Name,Parent Mobile,Monthly Fee,Status"];
-      const rows = students.map(s => `"${s.student_id || ''}","${s.name}","${s.grade_class}","${s.gender}","${s.parent_name}","${s.parent_mobile}",${s.monthly_fee},${s.is_active ? 'Active' : 'Inactive'}`);
-      const csvBlob = new Blob([[...headers, ...rows].join("\n")], { type: "text/csv" });
-      const url = URL.createObjectURL(csvBlob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `VidyaTrack_Students_${Date.now()}.csv`;
-      a.click();
-    };
-
-    window.downloadJsonBackup = async () => {
-      const [s, a, f] = await Promise.all([
-        sbClient.from("students").select("*"),
-        sbClient.from("attendance").select("*"),
-        sbClient.from("fees").select("*")
-      ]);
-
-      const backupBlob = new Blob([JSON.stringify({ timestamp: new Date(), students: s.data, attendance: a.data, fees: f.data }, null, 2)], { type: "application/json" });
-      const aTag = document.createElement("a");
-      aTag.href = URL.createObjectURL(backupBlob);
-      aTag.download = `VidyaTrack_Ledger_Backup_${Date.now()}.json`;
-      aTag.click();
     };
 
     function renderApp() {
@@ -793,17 +455,13 @@ slot.appendChild(modal);
     if (sbClient) {
       sbClient.auth.onAuthStateChange(async (_, session) => {
         currentUser = session ? session.user : null;
-        if (currentUser) {
-          currentUserRole = await fetchUserRole(currentUser.id);
-        }
+        if (currentUser) currentUserRole = await fetchUserRole(currentUser.id);
         renderApp();
       });
 
       sbClient.auth.getSession().then(async ({ data: { session } }) => {
         currentUser = session ? session.user : null;
-        if (currentUser) {
-          currentUserRole = await fetchUserRole(currentUser.id);
-        }
+        if (currentUser) currentUserRole = await fetchUserRole(currentUser.id);
         renderApp();
       });
     } else {
