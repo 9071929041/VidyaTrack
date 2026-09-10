@@ -572,7 +572,7 @@ ${JSON.stringify(dbContext)}
         loadTabContent();
       }
     };
-/ ==========================================
+// ==========================================
     // TOOL 2: STUDENTS DIRECTORY
     // ==========================================
     async function renderStudentsTab(container) {
@@ -672,8 +672,7 @@ ${JSON.stringify(dbContext)}
       if (error) alert("Error: " + error.message);
       else loadTabContent();
     };
-
-    // ==========================================
+// ==========================================
     // TOOL 3: ATTENDANCE
     // ==========================================
     async function renderAttendanceTab(container) {
@@ -1333,28 +1332,43 @@ Kindly review your child's progress report. Thank you!`;
       link.click();
     };
 
+    // Watchdog fallback initialization to prevent hanging on mobile network locks
     function startApp() {
-      if (sbClient) {
-        sbClient.auth.onAuthStateChange(async (_, session) => {
-          currentUser = session ? session.user : null;
-          if (currentUser) currentUserRole = await fetchUserRole(currentUser.id);
-          if (!currentUser) renderLoginView();
-          else {
-            renderMainShell();
-            loadTabContent();
-          }
+      let isRendered = false;
+      const watchdog = setTimeout(() => {
+        if (!isRendered) {
+          isRendered = true;
+          renderLoginView();
+        }
+      }, 1500);
+
+      const initView = async (session) => {
+        if (isRendered) return;
+        isRendered = true;
+        clearTimeout(watchdog);
+
+        currentUser = session ? session.user : null;
+        if (currentUser) {
+          currentUserRole = await fetchUserRole(currentUser.id);
+          renderMainShell();
+          loadTabContent();
+        } else {
+          renderLoginView();
+        }
+      };
+
+      if (sbClient && sbClient.auth) {
+        sbClient.auth.getSession().then(({ data: { session } }) => {
+          initView(session);
+        }).catch(() => {
+          initView(null);
         });
 
-        sbClient.auth.getSession().then(async ({ data: { session } }) => {
-          currentUser = session ? session.user : null;
-          if (currentUser) currentUserRole = await fetchUserRole(currentUser.id);
-          if (!currentUser) renderLoginView();
-          else {
-            renderMainShell();
-            loadTabContent();
-          }
+        sbClient.auth.onAuthStateChange((_, session) => {
+          initView(session);
         });
       } else {
+        clearTimeout(watchdog);
         renderLoginView();
       }
     }
