@@ -32,7 +32,7 @@
     const app = document.getElementById("app");
     let currentUser = null;
     let currentUserRole = "admin";
-    let currentTab = "reports";
+    let currentTab = "fees";
     let isDarkMode = localStorage.getItem("vt_dark") === "true";
     let selectedAttendanceDate = new Date().toISOString().split('T')[0];
 
@@ -116,6 +116,70 @@
         <main id="tabContent" class="flex-1 p-4 overflow-y-auto"></main>
         <div id="modalSlot"></div>
 
+        <!-- FLOATING AI ASSISTANT BUTTON -->
+        <div class="fixed bottom-20 right-4 z-40 no-print">
+          <button onclick="toggleAIChat(true)" class="flex items-center gap-1.5 px-3.5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all text-xs font-bold border border-white/20">
+            <span class="text-base">✨</span>
+            <span>Ask Vidya AI</span>
+          </button>
+        </div>
+
+        <!-- AI ASSISTANT MODAL DRAWER -->
+        <div id="aiDrawer" class="hidden fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 no-print">
+          <div class="bg-white dark:bg-slate-900 w-full max-w-lg rounded-t-3xl sm:rounded-3xl h-[85vh] sm:h-[650px] flex flex-col shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
+            
+            <!-- AI Header -->
+            <div class="p-3.5 px-4 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
+              <div class="flex items-center gap-2">
+                <span class="p-1.5 bg-gradient-to-br from-purple-500 to-indigo-600 text-white rounded-xl text-sm">✨</span>
+                <div>
+                  <h3 class="text-xs font-bold text-slate-900 dark:text-white">Vidya AI Assistant</h3>
+                  <p class="text-[9px] text-slate-400">Classroom Analytics &amp; Instant Insights</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="configureGeminiKey()" class="text-[10px] font-bold text-slate-500 hover:text-indigo-600 px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-700">
+                  ⚙️ API Key
+                </button>
+                <button onclick="toggleAIChat(false)" class="text-slate-400 hover:text-slate-600 font-bold text-sm p-1">✕</button>
+              </div>
+            </div>
+
+            <!-- Quick Suggestions -->
+            <div class="p-2 px-3 bg-slate-100/50 dark:bg-slate-950/40 border-b border-slate-200 dark:border-slate-800 flex gap-1.5 overflow-x-auto text-[10px] no-scrollbar">
+              <button onclick="quickAskAI('Who are the top 3 distinction rankers in the latest test?')" class="whitespace-nowrap px-2.5 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-medium hover:border-indigo-500">
+                🏆 Top 3 Rankers
+              </button>
+              <button onclick="quickAskAI('Which students have outstanding unpaid fees? List amounts.')" class="whitespace-nowrap px-2.5 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-medium hover:border-indigo-500">
+                💰 Unpaid Fees
+              </button>
+              <button onclick="quickAskAI('Show attendance rate and list students who have been absent.')" class="whitespace-nowrap px-2.5 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-medium hover:border-indigo-500">
+                📅 Absentee Alert
+              </button>
+            </div>
+
+            <!-- Messages Stream -->
+            <div id="aiMessagesContainer" class="flex-1 p-4 overflow-y-auto space-y-3 text-xs">
+              <div class="flex items-start gap-2">
+                <div class="p-1 bg-indigo-600 text-white rounded-lg text-xs">🤖</div>
+                <div class="bg-slate-100 dark:bg-slate-800 p-3 rounded-2xl rounded-tl-sm text-slate-800 dark:text-slate-200 max-w-[85%] leading-relaxed">
+                  Hello! I have full access to your students, tests, marks, attendance, and fee ledgers. Ask me anything like:
+                  <br/><br/>
+                  <em>"Let me know 1st 3 students in distinction in Unit Test 1"</em>
+                </div>
+              </div>
+            </div>
+
+            <!-- Chat Input Form -->
+            <form onsubmit="handleAISend(event)" class="p-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex gap-2">
+              <input type="text" id="aiInput" placeholder="Ask about marks, top rankers, fees..." required class="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500" />
+              <button type="submit" id="aiSendBtn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-xs transition">
+                Send
+              </button>
+            </form>
+          </div>
+        </div>
+
         <nav class="fixed bottom-0 left-0 right-0 max-w-xl mx-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-200 dark:border-slate-800 px-1 py-1.5 flex justify-between items-center z-30 no-print">
           ${navButton('fees', 'Fees', '💰')}
           ${navButton('students', 'Students', '👨‍🎓')}
@@ -167,6 +231,157 @@
       if (currentTab === "academics") await renderAcademicsTab(content);
       if (currentTab === "reports") await renderReportsTab(content);
     }
+
+    // ==========================================
+    // AI CHATBOT LOGIC (GEMINI API + REAL DATABASE)
+    // ==========================================
+    window.toggleAIChat = (show) => {
+      const drawer = document.getElementById("aiDrawer");
+      if (drawer) drawer.classList.toggle("hidden", !show);
+    };
+
+    window.configureGeminiKey = () => {
+      const current = localStorage.getItem("vt_gemini_key") || "";
+      const key = prompt("Enter your Google Gemini API Key (from Google AI Studio):", current);
+      if (key !== null) {
+        localStorage.setItem("vt_gemini_key", key.trim());
+        alert(key.trim() ? "Gemini API Key configured!" : "API Key cleared.");
+      }
+    };
+
+    window.quickAskAI = (question) => {
+      document.getElementById("aiInput").value = question;
+      handleAISend(new Event("submit"));
+    };
+
+    window.handleAISend = async (e) => {
+      if (e) e.preventDefault();
+      const input = document.getElementById("aiInput");
+      const query = input.value.trim();
+      if (!query) return;
+
+      let apiKey = localStorage.getItem("vt_gemini_key");
+      if (!apiKey) {
+        apiKey = prompt("Please enter your free Google Gemini API Key from Google AI Studio:");
+        if (!apiKey) {
+          alert("A Gemini API Key is required to power the assistant.");
+          return;
+        }
+        localStorage.setItem("vt_gemini_key", apiKey.trim());
+      }
+
+      const container = document.getElementById("aiMessagesContainer");
+      const sendBtn = document.getElementById("aiSendBtn");
+      input.value = "";
+      sendBtn.disabled = true;
+      sendBtn.innerText = "Analyzing...";
+
+      // Render User Message
+      container.innerHTML += `
+        <div class="flex items-start justify-end gap-2">
+          <div class="bg-indigo-600 text-white p-3 rounded-2xl rounded-tr-sm max-w-[85%] leading-relaxed">
+            ${query}
+          </div>
+        </div>
+      `;
+      container.scrollTop = container.scrollHeight;
+
+      // Temporary Loading Indicator
+      const loadingId = "ai_load_" + Date.now();
+      container.innerHTML += `
+        <div id="${loadingId}" class="flex items-start gap-2">
+          <div class="p-1 bg-indigo-600 text-white rounded-lg text-xs">🤖</div>
+          <div class="bg-slate-100 dark:bg-slate-800 p-3 rounded-2xl rounded-tl-sm text-slate-400 text-xs italic animate-pulse">
+            Querying live database & computing metrics...
+          </div>
+        </div>
+      `;
+      container.scrollTop = container.scrollHeight;
+
+      try {
+        // Fetch Live Database Snapshot
+        const [ { data: students }, { data: marks }, { data: attendance }, { data: fees } ] = await Promise.all([
+          sbClient.from("students").select("id, name, grade_class, monthly_fee, parent_name, parent_mobile").eq("is_active", true),
+          sbClient.from("test_marks").select("student_id, test_name, test_date, subject, min_score, max_score, obtained_score"),
+          sbClient.from("attendance").select("student_id, record_date, status"),
+          sbClient.from("fees").select("student_id, month_year, amount_due, amount_paid, status")
+        ]);
+
+        const dbContext = {
+          registered_students: students || [],
+          test_marks_records: marks || [],
+          attendance_records: attendance || [],
+          fee_records: fees || []
+        };
+
+        const systemInstructions = `
+You are VidyaTrack AI, an intelligent classroom assistant for an educational institution.
+You have direct access to the live institutional database provided below in JSON.
+
+Institutional Rules:
+1. Distinction is defined as an overall percentage >= 75% in a test (or total obtained score / total max score >= 0.75).
+2. Pass is defined as scoring >= min_score in all subjects of that test.
+3. Calculate student totals, overall percentages, and rank them precisely.
+4. When asked for top rankers or distinction students, list them in clear rank order (1st, 2nd, 3rd) with their exact percentage and subject breakdown.
+5. Provide concise, polite, well-formatted answers using bullet points and bold highlights.
+
+Live Database Snapshot:
+${JSON.stringify(dbContext)}
+`;
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  { text: systemInstructions },
+                  { text: query }
+                ]
+              }
+            ]
+          })
+        });
+
+        const data = await response.json();
+        document.getElementById(loadingId)?.remove();
+
+        if (data.error) {
+          throw new Error(data.error.message || "Gemini API rejected the request.");
+        }
+
+        const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated.";
+        const formattedReply = reply
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .replace(/\*(.*?)\*/g, '<em>$1</em>')
+          .replace(/\n/g, '<br/>');
+
+        container.innerHTML += `
+          <div class="flex items-start gap-2">
+            <div class="p-1 bg-indigo-600 text-white rounded-lg text-xs">🤖</div>
+            <div class="bg-slate-100 dark:bg-slate-800 p-3 rounded-2xl rounded-tl-sm text-slate-800 dark:text-slate-200 max-w-[85%] leading-relaxed">
+              ${formattedReply}
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        document.getElementById(loadingId)?.remove();
+        container.innerHTML += `
+          <div class="flex items-start gap-2">
+            <div class="p-1 bg-rose-600 text-white rounded-lg text-xs">⚠️</div>
+            <div class="bg-rose-50 dark:bg-rose-950/50 p-3 rounded-2xl rounded-tl-sm text-rose-600 dark:text-rose-400 text-xs">
+              Error: ${err.message}<br/>
+              <em>Tip: Check your API Key using the ⚙️ API Key button above.</em>
+            </div>
+          </div>
+        `;
+      } finally {
+        sendBtn.disabled = false;
+        sendBtn.innerText = "Send";
+        container.scrollTop = container.scrollHeight;
+      }
+    };
 
     // ==========================================
     // TOOL 1: FEES LEDGER (UNCHANGED)
@@ -323,8 +538,7 @@
         loadTabContent();
       };
     };
-
-    window.sendWhatsAppNotice = (studentName, mobile, parentName, cycle, due, paid, receiptNo, status) => {
+window.sendWhatsAppNotice = (studentName, mobile, parentName, cycle, due, paid, receiptNo, status) => {
       if (!mobile || mobile.trim() === "") {
         alert("No mobile number registered for this parent.");
         return;
@@ -468,7 +682,7 @@
       if (error) alert("Error: " + error.message);
       else loadTabContent();
     };
- // ==========================================
+// ==========================================
     // TOOL 3: ATTENDANCE (UNCHANGED)
     // ==========================================
     async function renderAttendanceTab(container) {
@@ -730,13 +944,7 @@
         </div>
       `;
     }
-
-    window.toggleTestEntryModal = (show) => {
-      const modal = document.getElementById("testEntryModal");
-      if (modal) modal.classList.toggle("hidden", !show);
-    };
-
-    window.addSubjectRow = () => {
+window.addSubjectRow = () => {
       const c = document.getElementById("subjectRowsContainer");
       const row = document.createElement("div");
       row.className = "subject-row bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 grid grid-cols-12 gap-1.5 items-center";
@@ -813,9 +1021,10 @@
       toggleTestEntryModal(false);
       loadTabContent();
     };
-  // =========================================================================
-    // TOOL 5: ADVANCED COMPREHENSIVE REPORTS (REAL DATABASE + FEES + ATTENDANCE + WHATSAPP + CSV)
-    // =========================================================================
+
+    // ==========================================
+    // TOOL 5: ADVANCED COMPREHENSIVE REPORTS (UNCHANGED)
+    // ==========================================
     let currentReportPayload = null;
 
     async function renderReportsTab(container) {
@@ -849,20 +1058,17 @@
       const studentId = sel.value;
       target.innerHTML = `<div class="py-12 text-center text-xs text-slate-400 animate-pulse">Aggregating live student records from Supabase...</div>`;
 
-      // 1. Fetch Student Details
       const { data: student, error: stuErr } = await sbClient.from("students").select("*").eq("id", studentId).single();
       if (stuErr || !student) {
         target.innerHTML = `<div class="p-4 text-rose-500 text-xs">Student record not found.</div>`;
         return;
       }
 
-      // 2. Fetch Fees Ledger
       const { data: fees } = await sbClient.from("fees").select("*").eq("student_id", studentId).order("month_year", { ascending: false });
       const totalBilled = (fees || []).reduce((sum, f) => sum + parseFloat(f.amount_due || 0), 0);
       const totalPaid = (fees || []).reduce((sum, f) => sum + parseFloat(f.amount_paid || 0), 0);
       const feeBalance = totalBilled - totalPaid;
 
-      // 3. Fetch Monthly & Overall Attendance
       const currentMonth = new Date().toISOString().slice(0, 7);
       const { data: attendance } = await sbClient.from("attendance").select("*").eq("student_id", studentId);
       const monthAtt = (attendance || []).filter(a => a.record_date && a.record_date.startsWith(currentMonth));
@@ -871,14 +1077,12 @@
       const monthAbsent = monthAtt.filter(a => a.status === 'Absent').length;
       const attendanceRate = totalMonthDays > 0 ? ((monthPresent / totalMonthDays) * 100).toFixed(1) : "N/A";
 
-      // 4. Fetch Real Test Marks from `test_marks`
       const { data: testMarks } = await sbClient
         .from("test_marks")
         .select("*")
         .eq("student_id", studentId)
         .order("created_at", { ascending: true });
 
-      // Group test marks by test_name
       const testGroups = {};
       (testMarks || []).forEach(m => {
         if (!testGroups[m.test_name]) {
@@ -891,7 +1095,6 @@
         testGroups[m.test_name].subjects.push(m);
       });
 
-      // Save report payload in memory for WhatsApp & CSV actions
       currentReportPayload = {
         student,
         fees: { totalBilled, totalPaid, feeBalance, list: fees || [] },
@@ -899,10 +1102,8 @@
         tests: Object.values(testGroups)
       };
 
-      // 5. Render Comprehensive Report Screen
       target.innerHTML = `
         <div class="space-y-4">
-          <!-- ACTION CONTROLS (HIDDEN ON PRINT) -->
           <div class="flex flex-wrap gap-2 justify-end no-print">
             <button onclick="sendReportWhatsApp()" class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs">
               <span>💬</span> Push via WhatsApp
@@ -915,16 +1116,12 @@
             </button>
           </div>
 
-          <!-- PRINTABLE OFFICIAL REPORT CARD -->
           <div id="printReportArea" class="bg-white text-slate-900 p-6 rounded-3xl shadow-sm border border-slate-200 space-y-6">
-            
-            <!-- ACADEMY HEADER -->
             <div class="text-center border-b border-slate-300 pb-3">
               <h1 class="text-xl font-black uppercase tracking-wider text-indigo-900">VidyaTrack Academy</h1>
               <p class="text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">Comprehensive Student Progress &amp; Standing Report</p>
             </div>
 
-            <!-- STUDENT INFORMATION -->
             <div class="grid grid-cols-2 gap-2 text-xs border-b border-slate-100 pb-3">
               <div>
                 <p class="text-slate-500 text-[10px] uppercase font-bold">Student Details</p>
@@ -939,7 +1136,6 @@
               </div>
             </div>
 
-            <!-- SECTION 1: ATTENDANCE & FEE HIGHLIGHTS -->
             <div class="grid grid-cols-2 gap-3">
               <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200">
                 <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Monthly Attendance (${currentMonth})</span>
@@ -960,7 +1156,6 @@
               </div>
             </div>
 
-            <!-- SECTION 2: TEST-WISE ACADEMIC PERFORMANCE -->
             <div class="space-y-4">
               <h4 class="text-xs font-black uppercase tracking-wider text-slate-700 border-b border-slate-200 pb-1">
                 Academic Performance (Recorded Tests)
@@ -1027,7 +1222,6 @@
               }).join("")}
             </div>
 
-            <!-- SIGNATURES (FOR OFFICIAL PRINTING) -->
             <div class="pt-10 flex justify-between items-end text-xs text-slate-700">
               <div class="border-t border-slate-400 w-32 text-center pt-1 font-semibold">Class Teacher</div>
               <div class="border-t border-slate-400 w-32 text-center pt-1 font-semibold">Principal</div>
@@ -1037,10 +1231,7 @@
         </div>
       `;
     };
- // ==========================================
-    // ACTION: PUSH PROGRESS REPORT VIA WHATSAPP
-    // ==========================================
-    window.sendReportWhatsApp = () => {
+window.sendReportWhatsApp = () => {
       if (!currentReportPayload) return;
       const { student, fees, attendance, tests } = currentReportPayload;
 
@@ -1051,7 +1242,6 @@
 
       const cleanMobile = student.parent_mobile.replace(/[^0-9]/g, "").slice(-10);
 
-      // Build Test Scores Breakdown Text
       let testText = "";
       if (tests.length === 0) {
         testText = "No test records found.";
@@ -1095,9 +1285,6 @@ Kindly review your child's progress report. Thank you!`;
       window.open("https://wa.me/91" + cleanMobile + "?text=" + encodeURIComponent(message), "_blank");
     };
 
-    // ==========================================
-    // ACTION: DOWNLOAD STRUCTURED CSV REPORT
-    // ==========================================
     window.downloadReportCSV = () => {
       if (!currentReportPayload) return;
       const { student, fees, attendance, tests } = currentReportPayload;
