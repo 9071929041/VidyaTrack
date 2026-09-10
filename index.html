@@ -5,17 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>VidyaTrack - Classroom & Ledger OS</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/@supabase/supabase-js@2.39.8/dist/umd/supabase.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen antialiased">
-  <div id="app" class="max-w-xl mx-auto min-h-screen flex flex-col pb-20 sm:pb-8"></div>
+  <div id="app" class="max-w-xl mx-auto min-h-screen flex flex-col pb-20 sm:pb-8">
+    <div class="p-8 text-center text-xs text-slate-400">Booting VidyaTrack...</div>
+  </div>
 
   <script>
     const SUPABASE_URL = "https://potwcgsmaogmnqbktftm.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBvdHdjZ3NtYW9nbW5xYmt0ZnRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5NTQ3OTIsImV4cCI6MjEwNDUzMDc5Mn0.8Tn1cVEbID48PvAOqztUY2sNDDrDBBgYH4V9zH1ksZ8";
 
-    const sbClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
     const app = document.getElementById("app");
+    let sbClient = null;
+
+    try {
+      if (window.supabase && window.supabase.createClient) {
+        sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      }
+    } catch (e) {
+      console.error("Supabase init error", e);
+    }
 
     let currentUser = null;
     let currentUserRole = "admin";
@@ -25,6 +35,7 @@
     if (isDarkMode) document.documentElement.classList.add("dark");
 
     async function fetchUserRole(userId) {
+      if (!sbClient) return "admin";
       try {
         const { data, error } = await sbClient
           .from("user_roles")
@@ -74,6 +85,14 @@
         const email = document.getElementById("loginEmail").value.trim();
         const password = document.getElementById("loginPassword").value;
 
+        if (!sbClient) {
+          err.innerText = "Supabase SDK not initialized. Please check connection.";
+          err.classList.remove("hidden");
+          btn.disabled = false;
+          btn.innerText = "Sign In";
+          return;
+        }
+
         const { data, error } = await sbClient.auth.signInWithPassword({ email, password });
         if (error) {
           err.innerText = error.message;
@@ -107,7 +126,7 @@
             <button onclick="toggleDarkMode()" class="p-2 text-slate-500 rounded-lg text-xs">
               ${isDarkMode ? '☀️' : '🌙'}
             </button>
-            <button onclick="sbClient.auth.signOut()" class="text-xs px-2.5 py-1 bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 rounded-lg font-medium">Exit</button>
+            <button onclick="handleLogout()" class="text-xs px-2.5 py-1 bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 rounded-lg font-medium">Exit</button>
           </div>
         </header>
 
@@ -144,8 +163,15 @@
       loadTabContent();
     };
 
+    window.handleLogout = async () => {
+      if (sbClient) await sbClient.auth.signOut();
+      currentUser = null;
+      renderLoginView();
+    };
+
     async function loadTabContent() {
       const content = document.getElementById("tabContent");
+      if (!content) return;
       content.innerHTML = `<div class="py-20 text-center text-xs text-slate-400 animate-pulse">Loading data...</div>`;
 
       if (currentTab === "fees") await renderFeesTab(content);
@@ -154,6 +180,11 @@
 
     async function renderFeesTab(container) {
       const currentMonth = new Date().toISOString().slice(0, 7);
+
+      if (!sbClient) {
+        container.innerHTML = `<div class="p-4 bg-rose-50 text-rose-600 text-xs rounded-xl">Supabase client offline.</div>`;
+        return;
+      }
 
       const { data: fees, error } = await sbClient
         .from("fees")
@@ -233,7 +264,7 @@
                         </button>
                       ` : ''}
 
-                      <button onclick="sendWhatsAppNotice('${f.id}', '${student.name || ''}', '${student.parent_mobile || ''}', '${student.parent_name || ''}', '${f.month_year}', ${f.amount_due}, ${f.amount_paid}, '${f.receipt_no || ''}', '${f.status}')" class="px-2 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-[10px] font-bold flex items-center gap-1">
+                      <button onclick="sendWhatsAppNotice('${student.name || ''}', '${student.parent_mobile || ''}', '${student.parent_name || ''}', '${f.month_year}', ${f.amount_due}, ${f.amount_paid}, '${f.receipt_no || ''}', '${f.status}')" class="px-2 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-[10px] font-bold flex items-center gap-1">
                         <span>💬</span> ${isPaid ? 'Receipt' : 'Reminder'}
                       </button>
                     </div>
@@ -290,7 +321,7 @@
           <form id="payForm" class="space-y-3 text-xs">
             <div>
               <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Payment Amount (₹) *</label>
-              <input type="number" id="payAmount" min="1" max="${balance}" value="${balance}" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 font-bold text-slate-900 dark:text-white outline-none" />
+              <input type="number" id="payAmount" min="1" max="${balance}" value="${balance}" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 font-bold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
             <div>
               <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Payment Mode</label>
@@ -335,7 +366,7 @@
       };
     };
 
-    window.sendWhatsAppNotice = (feeId, studentName, mobile, parentName, cycle, due, paid, receiptNo, status) => {
+    window.sendWhatsAppNotice = (studentName, mobile, parentName, cycle, due, paid, receiptNo, status) => {
       if (!mobile || mobile.trim() === "") {
         alert("No mobile number registered for this parent.");
         return;
@@ -370,11 +401,11 @@ This is a gentle reminder regarding tuition dues for *${studentName}*.
 *Paid so far:* ₹${paid.toLocaleString("en-IN")}
 *Outstanding Balance:* ₹${balance.toLocaleString("en-IN")} ⚠️
 
-Kindly arrange for the balance settlement at your earliest convenience. Thank you!`;
+Kindly arrange for the balance settlement at your earliest convenienceThank you!`;
       }
 
       const encoded = encodeURIComponent(message);
-      window.open(`https://wa.me/91${cleanMobile}?text=${encoded}`, "_blank");
+      window.open("https://wa.me/91" + cleanMobile + "?text=" + encoded, "_blank");
     };
 
     window.generateMonthlyDues = async () => {
@@ -395,7 +426,7 @@ Kindly arrange for the balance settlement at your earliest convenience. Thank yo
         status: 'Pending'
       }));
 
-      const { error } = await sbClient.from("fees").upser(records, { onConflict: "student_id,month_year" });
+      const { error } = await sbClient.from("fees").upsert(records, { onConflict: "student_id,month_year" });
       if (error) {
         alert("Error generating dues: " + error.message);
       } else {
@@ -444,29 +475,33 @@ Kindly arrange for the balance settlement at your earliest convenience. Thank yo
       };
     };
 
-    function renderApp() {
-      if (!currentUser) renderLoginView();
-      else {
-        renderMainShell();
-        loadTabContent();
+    function startApp() {
+      if (sbClient) {
+        sbClient.auth.onAuthStateChange(async (_, session) => {
+          currentUser = session ? session.user : null;
+          if (currentUser) currentUserRole = await fetchUserRole(currentUser.id);
+          if (!currentUser) renderLoginView();
+          else {
+            renderMainShell();
+            loadTabContent();
+          }
+        });
+
+        sbClient.auth.getSession().then(async ({ data: { session } }) => {
+          currentUser = session ? session.user : null;
+          if (currentUser) currentUserRole = await fetchUserRole(currentUser.id);
+          if (!currentUser) renderLoginView();
+          else {
+            renderMainShell();
+            loadTabContent();
+          }
+        });
+      } else {
+        renderLoginView();
       }
     }
 
-    if (sbClient) {
-      sbClient.auth.onAuthStateChange(async (_, session) => {
-        currentUser = session ? session.user : null;
-        if (currentUser) currentUserRole = await fetchUserRole(currentUser.id);
-        renderApp();
-      });
-
-      sbClient.auth.getSession().then(async ({ data: { session } }) => {
-        currentUser = session ? session.user : null;
-        if (currentUser) currentUserRole = await fetchUserRole(currentUser.id);
-        renderApp();
-      });
-    } else {
-      renderLoginView();
-    }
+    startApp();
   </script>
 </body>
 </html>
