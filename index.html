@@ -32,7 +32,7 @@
     const app = document.getElementById("app");
     let currentUser = null;
     let currentUserRole = "admin";
-    let currentTab = "fees";
+    let currentTab = "academics";
     let isDarkMode = localStorage.getItem("vt_dark") === "true";
     let selectedAttendanceDate = new Date().toISOString().split('T')[0];
 
@@ -128,7 +128,6 @@
         <div id="aiDrawer" class="hidden fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 no-print">
           <div class="bg-white dark:bg-slate-900 w-full max-w-lg rounded-t-3xl sm:rounded-3xl h-[85vh] sm:h-[650px] flex flex-col shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
             
-            <!-- AI Header -->
             <div class="p-3.5 px-4 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
               <div class="flex items-center gap-2">
                 <span class="p-1.5 bg-gradient-to-br from-purple-500 to-indigo-600 text-white rounded-xl text-sm">✨</span>
@@ -145,7 +144,6 @@
               </div>
             </div>
 
-            <!-- Quick Suggestions -->
             <div class="p-2 px-3 bg-slate-100/50 dark:bg-slate-950/40 border-b border-slate-200 dark:border-slate-800 flex gap-1.5 overflow-x-auto text-[10px] no-scrollbar">
               <button onclick="quickAskAI('Who are the top 3 distinction rankers in the latest test?')" class="whitespace-nowrap px-2.5 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-medium hover:border-indigo-500">
                 🏆 Top 3 Rankers
@@ -158,7 +156,6 @@
               </button>
             </div>
 
-            <!-- Messages Stream -->
             <div id="aiMessagesContainer" class="flex-1 p-4 overflow-y-auto space-y-3 text-xs">
               <div class="flex items-start gap-2">
                 <div class="p-1 bg-indigo-600 text-white rounded-lg text-xs">🤖</div>
@@ -170,7 +167,6 @@
               </div>
             </div>
 
-            <!-- Chat Input Form -->
             <form onsubmit="handleAISend(event)" class="p-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex gap-2">
               <input type="text" id="aiInput" placeholder="Ask about marks, top rankers, fees..." required class="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500" />
               <button type="submit" id="aiSendBtn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-xs transition">
@@ -233,7 +229,7 @@
     }
 
     // ==========================================
-    // AI CHATBOT LOGIC (GEMINI API + REAL DATABASE)
+    // AI CHATBOT LOGIC (GEMINI 3.6 FLASH)
     // ==========================================
     window.toggleAIChat = (show) => {
       const drawer = document.getElementById("aiDrawer");
@@ -242,7 +238,7 @@
 
     window.configureGeminiKey = () => {
       const current = localStorage.getItem("vt_gemini_key") || "";
-      const key = prompt("Enter your Google Gemini API Key (from Google AI Studio):", current);
+      const key = prompt("Enter your Google Gemini API Key:", current);
       if (key !== null) {
         localStorage.setItem("vt_gemini_key", key.trim());
         alert(key.trim() ? "Gemini API Key configured!" : "API Key cleared.");
@@ -262,11 +258,8 @@
 
       let apiKey = localStorage.getItem("vt_gemini_key");
       if (!apiKey) {
-        apiKey = prompt("Please enter your free Google Gemini API Key from Google AI Studio:");
-        if (!apiKey) {
-          alert("A Gemini API Key is required to power the assistant.");
-          return;
-        }
+        apiKey = prompt("Please enter your Google Gemini API Key from Google AI Studio:");
+        if (!apiKey) return;
         localStorage.setItem("vt_gemini_key", apiKey.trim());
       }
 
@@ -276,7 +269,6 @@
       sendBtn.disabled = true;
       sendBtn.innerText = "Analyzing...";
 
-      // Render User Message
       container.innerHTML += `
         <div class="flex items-start justify-end gap-2">
           <div class="bg-indigo-600 text-white p-3 rounded-2xl rounded-tr-sm max-w-[85%] leading-relaxed">
@@ -286,7 +278,6 @@
       `;
       container.scrollTop = container.scrollHeight;
 
-      // Temporary Loading Indicator
       const loadingId = "ai_load_" + Date.now();
       container.innerHTML += `
         <div id="${loadingId}" class="flex items-start gap-2">
@@ -299,7 +290,6 @@
       container.scrollTop = container.scrollHeight;
 
       try {
-        // Fetch Live Database Snapshot
         const [ { data: students }, { data: marks }, { data: attendance }, { data: fees } ] = await Promise.all([
           sbClient.from("students").select("id, name, grade_class, monthly_fee, parent_name, parent_mobile").eq("is_active", true),
           sbClient.from("test_marks").select("student_id, test_name, test_date, subject, min_score, max_score, obtained_score"),
@@ -384,7 +374,7 @@ ${JSON.stringify(dbContext)}
     };
 
     // ==========================================
-    // TOOL 1: FEES LEDGER (UNCHANGED)
+    // TOOL 1: FEES LEDGER
     // ==========================================
     async function renderFeesTab(container) {
       const currentMonth = new Date().toISOString().slice(0, 7);
@@ -538,7 +528,8 @@ ${JSON.stringify(dbContext)}
         loadTabContent();
       };
     };
-window.sendWhatsAppNotice = (studentName, mobile, parentName, cycle, due, paid, receiptNo, status) => {
+
+    window.sendWhatsAppNotice = (studentName, mobile, parentName, cycle, due, paid, receiptNo, status) => {
       if (!mobile || mobile.trim() === "") {
         alert("No mobile number registered for this parent.");
         return;
@@ -583,7 +574,7 @@ window.sendWhatsAppNotice = (studentName, mobile, parentName, cycle, due, paid, 
     };
 
     // ==========================================
-    // TOOL 2: STUDENTS DIRECTORY (UNCHANGED)
+    // TOOL 2: STUDENTS DIRECTORY
     // ==========================================
     async function renderStudentsTab(container) {
       const { data: students, error } = await sbClient.from("students").select("*").order("name");
@@ -628,7 +619,7 @@ window.sendWhatsAppNotice = (studentName, mobile, parentName, cycle, due, paid, 
       `;
     }
 
-    window.filterStudentList = () => {
+window.filterStudentList = () => {
       const q = document.getElementById("studentSearchInput").value.toLowerCase();
       document.querySelectorAll(".student-item").forEach(item => {
         item.style.display = item.getAttribute("data-search").includes(q) ? "flex" : "none";
@@ -682,8 +673,9 @@ window.sendWhatsAppNotice = (studentName, mobile, parentName, cycle, due, paid, 
       if (error) alert("Error: " + error.message);
       else loadTabContent();
     };
-// ==========================================
-    // TOOL 3: ATTENDANCE (UNCHANGED)
+
+    // ==========================================
+    // TOOL 3: ATTENDANCE
     // ==========================================
     async function renderAttendanceTab(container) {
       const { data: students, error: sErr } = await sbClient.from("students").select("*").eq("is_active", true).order("name");
@@ -776,12 +768,10 @@ window.sendWhatsAppNotice = (studentName, mobile, parentName, cycle, due, paid, 
 
       loadTabContent();
     };
-
-    // ==========================================
-    // TOOL 4: MARKS & ACADEMICS (UNCHANGED)
+// ==========================================
+    // TOOL 4: MARKS & ACADEMICS (FIXED DIRECT MODAL)
     // ==========================================
     async function renderAcademicsTab(container) {
-      const { data: students } = await sbClient.from("students").select("id, name, grade_class").eq("is_active", true).order("name");
       const { data: marks, error } = await sbClient
         .from("test_marks")
         .select("*, students(name, grade_class)")
@@ -807,7 +797,7 @@ window.sendWhatsAppNotice = (studentName, mobile, parentName, cycle, due, paid, 
         <div class="space-y-4">
           <div class="flex justify-between items-center">
             <h3 class="text-xs font-bold uppercase text-slate-400">Academics & Tests</h3>
-            <button onclick="toggleTestEntryModal(true)" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-xs">
+            <button onclick="openAddTestMarksModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-xs">
               + Add Test Marks
             </button>
           </div>
@@ -880,86 +870,105 @@ window.sendWhatsAppNotice = (studentName, mobile, parentName, cycle, due, paid, 
               `;
             }).join("")}
           </div>
-
-          <div id="testEntryModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-3">
-            <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 w-full max-w-md max-h-[90vh] overflow-y-auto space-y-3 shadow-xl">
-              <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-2">
-                <h3 class="text-xs font-bold uppercase text-slate-800 dark:text-white">Add Multi-Subject Test Marks</h3>
-                <button onclick="toggleTestEntryModal(false)" class="text-slate-400 hover:text-slate-600 text-sm font-bold">✕</button>
-              </div>
-
-              <form id="multiSubjectForm" onsubmit="saveMultiSubjectTest(event)" class="space-y-3 text-xs">
-                <div>
-                  <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Select Student *</label>
-                  <select id="multiStudentId" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none">
-                    ${(students || []).map(s => `<option value="${s.id}">${s.name} (${s.grade_class})</option>`).join("")}
-                  </select>
-                </div>
-
-                <div class="grid grid-cols-2 gap-2">
-                  <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Test Name *</label>
-                    <input type="text" id="multiTestName" placeholder="e.g. Unit Test 1" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
-                  </div>
-                  <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Test Date *</label>
-                    <input type="date" id="multiTestDate" value="${new Date().toISOString().split('T')[0]}" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none" />
-                  </div>
-                </div>
-
-                <div class="border-t border-slate-200 dark:border-slate-800 pt-2">
-                  <div class="flex justify-between items-center mb-1">
-                    <span class="text-[10px] font-bold text-slate-400 uppercase">Subjects List</span>
-                    <button type="button" onclick="addSubjectRow()" class="text-[10px] font-bold text-indigo-600 hover:text-indigo-700">+ Add Subject</button>
-                  </div>
-                  
-                  <div id="subjectRowsContainer" class="space-y-2">
-                    <div class="subject-row bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 grid grid-cols-12 gap-1.5 items-center">
-                      <div class="col-span-5">
-                        <input type="text" placeholder="Subject Name" required class="sub-name w-full p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-xs outline-none" />
-                      </div>
-                      <div class="col-span-2">
-                        <input type="number" placeholder="Min" value="35" required class="sub-min w-full p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-xs outline-none text-center" />
-                      </div>
-                      <div class="col-span-2">
-                        <input type="number" placeholder="Max" value="100" required class="sub-max w-full p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-xs outline-none text-center" />
-                      </div>
-                      <div class="col-span-2">
-                        <input type="number" step="0.5" placeholder="Obtained" required class="sub-obtained w-full p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-xs outline-none text-center font-bold text-indigo-600" />
-                      </div>
-                      <div class="col-span-1 text-center">
-                        <button type="button" onclick="removeSubjectRow(this)" class="text-rose-500 font-bold text-xs">✕</button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="flex gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
-                  <button type="button" onclick="toggleTestEntryModal(false)" class="flex-1 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl font-bold">Cancel</button>
-                  <button type="submit" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-xs">Save Test</button>
-                </div>
-              </form>
-            </div>
-          </div>
         </div>
       `;
     }
-window.addSubjectRow = () => {
+
+    // Modal Mounted Directly in #modalSlot
+    window.openAddTestMarksModal = async () => {
+      const slot = document.getElementById("modalSlot");
+      const { data: students } = await sbClient.from("students").select("id, name, grade_class").eq("is_active", true).order("name");
+      
+      if (!students || students.length === 0) {
+        alert("Please add students first before recording test marks.");
+        return;
+      }
+
+      const modal = document.createElement("div");
+      modal.id = "testEntryModalContainer";
+      modal.className = "fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-3";
+      modal.innerHTML = `
+        <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 w-full max-w-md max-h-[90vh] overflow-y-auto space-y-3 shadow-xl text-slate-900 dark:text-white">
+          <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-2">
+            <h3 class="text-xs font-bold uppercase tracking-wider">Add Multi-Subject Test Marks</h3>
+            <button type="button" onclick="this.closest('#testEntryModalContainer').remove()" class="text-slate-400 hover:text-slate-600 font-bold text-sm p-1">✕</button>
+          </div>
+
+          <form id="multiSubjectForm" onsubmit="saveMultiSubjectTest(event)" class="space-y-3 text-xs">
+            <div>
+              <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Select Student *</label>
+              <select id="multiStudentId" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none text-slate-800 dark:text-slate-200">
+                ${students.map(s => `<option value="${s.id}">${s.name} (${s.grade_class})</option>`).join("")}
+              </select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Test Name *</label>
+                <input type="text" id="multiTestName" placeholder="e.g. Unit Test 1" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none text-slate-800 dark:text-slate-200" />
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Test Date *</label>
+                <input type="date" id="multiTestDate" value="${new Date().toISOString().split('T')[0]}" required class="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 outline-none text-slate-800 dark:text-slate-200" />
+              </div>
+            </div>
+
+            <div class="border-t border-slate-200 dark:border-slate-800 pt-2">
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-[10px] font-bold text-slate-400 uppercase">Subjects List</span>
+                <button type="button" onclick="addSubjectRow()" class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">+ Add Subject</button>
+              </div>
+              
+              <div id="subjectRowsContainer" class="space-y-2">
+                <div class="subject-row bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 grid grid-cols-12 gap-1.5 items-center">
+                  <div class="col-span-5">
+                    <input type="text" placeholder="Subject Name" required class="sub-name w-full p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-xs outline-none text-slate-800 dark:text-slate-200" />
+                  </div>
+                  <div class="col-span-2">
+                    <input type="number" placeholder="Min" value="35" required class="sub-min w-full p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-xs outline-none text-center text-slate-800 dark:text-slate-200" />
+                  </div>
+                  <div class="col-span-2">
+                    <input type="number" placeholder="Max" value="100" required class="sub-max w-full p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-xs outline-none text-center text-slate-800 dark:text-slate-200" />
+                  </div>
+                  <div class="col-span-2">
+                    <input type="number" step="0.5" placeholder="Score" required class="sub-obtained w-full p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-xs outline-none text-center font-bold text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <div class="col-span-1 text-center">
+                    <button type="button" onclick="removeSubjectRow(this)" class="text-rose-500 font-bold text-xs">✕</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <button type="button" onclick="this.closest('#testEntryModalContainer').remove()" class="flex-1 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl font-bold">Cancel</button>
+              <button type="submit" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-xs">Save Test</button>
+            </div>
+          </form>
+        </div>
+      `;
+      slot.innerHTML = '';
+      slot.appendChild(modal);
+    };
+window.toggleTestEntryModal = () => openAddTestMarksModal();
+
+    window.addSubjectRow = () => {
       const c = document.getElementById("subjectRowsContainer");
+      if (!c) return;
       const row = document.createElement("div");
       row.className = "subject-row bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 grid grid-cols-12 gap-1.5 items-center";
       row.innerHTML = `
         <div class="col-span-5">
-          <input type="text" placeholder="Subject Name" required class="sub-name w-full p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-xs outline-none" />
+          <input type="text" placeholder="Subject Name" required class="sub-name w-full p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-xs outline-none text-slate-800 dark:text-slate-200" />
         </div>
         <div class="col-span-2">
-          <input type="number" placeholder="Min" value="35" required class="sub-min w-full p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-xs outline-none text-center" />
+          <input type="number" placeholder="Min" value="35" required class="sub-min w-full p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-xs outline-none text-center text-slate-800 dark:text-slate-200" />
         </div>
         <div class="col-span-2">
-          <input type="number" placeholder="Max" value="100" required class="sub-max w-full p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-xs outline-none text-center" />
+          <input type="number" placeholder="Max" value="100" required class="sub-max w-full p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-xs outline-none text-center text-slate-800 dark:text-slate-200" />
         </div>
         <div class="col-span-2">
-          <input type="number" step="0.5" placeholder="Obtained" required class="sub-obtained w-full p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-xs outline-none text-center font-bold text-indigo-600" />
+          <input type="number" step="0.5" placeholder="Score" required class="sub-obtained w-full p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-xs outline-none text-center font-bold text-indigo-600 dark:text-indigo-400" />
         </div>
         <div class="col-span-1 text-center">
           <button type="button" onclick="removeSubjectRow(this)" class="text-rose-500 font-bold text-xs">✕</button>
@@ -1018,12 +1027,13 @@ window.addSubjectRow = () => {
       }
 
       alert(`Test '${testName}' with ${records.length} subjects saved successfully!`);
-      toggleTestEntryModal(false);
+      const modalContainer = document.getElementById("testEntryModalContainer");
+      if (modalContainer) modalContainer.remove();
       loadTabContent();
     };
 
     // ==========================================
-    // TOOL 5: ADVANCED COMPREHENSIVE REPORTS (UNCHANGED)
+    // TOOL 5: ADVANCED COMPREHENSIVE REPORTS
     // ==========================================
     let currentReportPayload = null;
 
