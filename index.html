@@ -32,9 +32,10 @@
     const app = document.getElementById("app");
     let currentUser = null;
     let currentUserRole = "admin";
-    let currentTab = "academics";
+    let currentTab = "attendance";
     let isDarkMode = localStorage.getItem("vt_dark") === "true";
     let selectedAttendanceDate = new Date().toISOString().split('T')[0];
+    let isListeningVoice = false;
 
     if (isDarkMode) document.documentElement.classList.add("dark");
 
@@ -389,7 +390,7 @@ ${JSON.stringify(dbContext)}
         return;
       }
 
-      const totalBilled = (fees || []).reduce((acc, f) => acc + parseFloat(f.amount_due || 0), 0);
+      const totalBilled = (fees || []).reduce((acc, f) => acc + parseFloat(f.amount_due || []).reduce((acc, f) => acc + parseFloat(f.amount_due || 0), 0);
       const totalCollected = (fees || []).reduce((acc, f) => acc + parseFloat(f.amount_paid || 0), 0);
       const totalPending = totalBilled - totalCollected;
 
@@ -572,8 +573,7 @@ ${JSON.stringify(dbContext)}
         loadTabContent();
       }
     };
-
-    // ==========================================
+ // ==========================================
     // TOOL 2: STUDENTS DIRECTORY
     // ==========================================
     async function renderStudentsTab(container) {
@@ -619,7 +619,7 @@ ${JSON.stringify(dbContext)}
       `;
     }
 
-window.filterStudentList = () => {
+    window.filterStudentList = () => {
       const q = document.getElementById("studentSearchInput").value.toLowerCase();
       document.querySelectorAll(".student-item").forEach(item => {
         item.style.display = item.getAttribute("data-search").includes(q) ? "flex" : "none";
@@ -673,9 +673,8 @@ window.filterStudentList = () => {
       if (error) alert("Error: " + error.message);
       else loadTabContent();
     };
-
-    // ==========================================
-    // TOOL 3: ATTENDANCE
+/ ==========================================
+    // TOOL 3: ATTENDANCE (WITH VOICE ROLL-CALL)
     // ==========================================
     async function renderAttendanceTab(container) {
       const { data: students, error: sErr } = await sbClient.from("students").select("*").eq("is_active", true).order("name");
@@ -710,12 +709,32 @@ window.filterStudentList = () => {
             </div>
           </div>
 
-          <div class="bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
-            <div>
-              <span class="text-[10px] font-bold text-slate-400 uppercase block">Select Attendance Date</span>
-              <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400 font-mono">${selectedAttendanceDate}</span>
+          <!-- VOICE ROLL CALL & DATE CONTROLLER -->
+          <div class="bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-2.5">
+            <div class="flex items-center justify-between">
+              <div>
+                <span class="text-[10px] font-bold text-slate-400 uppercase block">Attendance Date</span>
+                <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400 font-mono">${selectedAttendanceDate}</span>
+              </div>
+              <input type="date" value="${selectedAttendanceDate}" onchange="changeAttendanceDate(this.value)" class="text-xs font-bold p-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
-            <input type="date" value="${selectedAttendanceDate}" onchange="changeAttendanceDate(this.value)" class="text-xs font-bold p-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" />
+
+            <!-- Voice Trigger Action Bar -->
+            <div class="flex gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+              <button id="voiceRollBtn" onclick="startVoiceRollCall()" class="flex-1 py-2 px-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition">
+                <span>🎙️</span>
+                <span id="voiceBtnText">Voice Roll Call</span>
+              </button>
+              <button onclick="markAllPresent()" class="py-2 px-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition">
+                ⚡ Mark All Present
+              </button>
+            </div>
+
+            <!-- Voice Status Feedback Indicator -->
+            <div id="voiceStatusBox" class="hidden p-2 rounded-xl text-[11px] bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 flex items-center justify-between">
+              <span id="voiceStatusText" class="animate-pulse">Listening... Say e.g. "Rahul absent, Sanvi present"</span>
+              <button onclick="stopVoiceRollCall()" class="text-[10px] font-bold text-rose-500 px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-rose-200">Stop</button>
+            </div>
           </div>
 
           <div class="space-y-2">
@@ -749,6 +768,21 @@ window.filterStudentList = () => {
       loadTabContent();
     };
 
+    window.markAllPresent = async () => {
+      const { data: students } = await sbClient.from("students").select("id").eq("is_active", true);
+      if (!students || students.length === 0) return;
+
+      const records = students.map(s => ({
+        student_id: s.id,
+        record_date: selectedAttendanceDate,
+        status: "Present"
+      }));
+
+      const { error } = await sbClient.from("attendance").upsert(records, { onConflict: "student_id,record_date" });
+      if (error) alert("Error: " + error.message);
+      else loadTabContent();
+    };
+
     window.setAttendance = async (studentId, date, status, name, mobile) => {
       const { error } = await sbClient.from("attendance").upsert(
         { student_id: studentId, record_date: date, status: status },
@@ -768,8 +802,113 @@ window.filterStudentList = () => {
 
       loadTabContent();
     };
-// ==========================================
-    // TOOL 4: MARKS & ACADEMICS (FIXED DIRECT MODAL)
+
+    // ==========================================
+    // WEB SPEECH API ENGINE (VOICE ROLL CALL)
+    // ==========================================
+    let recognitionInstance = null;
+
+    window.startVoiceRollCall = () => {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert("Web Speech API is not supported on this browser. Please use Chrome on Android.");
+        return;
+      }
+
+      const box = document.getElementById("voiceStatusBox");
+      const text = document.getElementById("voiceStatusText");
+      const btnText = document.getElementById("voiceBtnText");
+
+      recognitionInstance = new SpeechRecognition();
+      recognitionInstance.lang = "en-IN"; // English (India) optimized for Indian names
+      recognitionInstance.continuous = false;
+      recognitionInstance.interimResults = false;
+
+      recognitionInstance.onstart = () => {
+        isListeningVoice = true;
+        if (box) box.classList.remove("hidden");
+        if (text) text.innerText = "Listening... Say e.g. 'Rahul absent, Sanvi present'";
+        if (btnText) btnText.innerText = "Listening...";
+      };
+
+      recognitionInstance.onresult = async (event) => {
+        const transcript = event.results[0][0].transcript.toLowerCase();
+        if (text) text.innerText = `Heard: "${transcript}" — Processing...`;
+        await processVoiceRollTranscript(transcript);
+      };
+
+      recognitionInstance.onerror = (event) => {
+        if (text) text.innerText = "Error: " + (event.error || "Mic blocked");
+        stopVoiceRollCall();
+      };
+
+      recognitionInstance.onend = () => {
+        stopVoiceRollCall();
+      };
+
+      recognitionInstance.start();
+    };
+
+    window.stopVoiceRollCall = () => {
+      if (recognitionInstance) {
+        try { recognitionInstance.stop(); } catch(e) {}
+      }
+      isListeningVoice = false;
+      const box = document.getElementById("voiceStatusBox");
+      const btnText = document.getElementById("voiceBtnText");
+      if (box) box.classList.add("hidden");
+      if (btnText) btnText.innerText = "Voice Roll Call";
+    };
+
+    async function processVoiceRollTranscript(transcript) {
+      const { data: students } = await sbClient.from("students").select("id, name").eq("is_active", true);
+      if (!students || students.length === 0) {
+        alert("No active students found in database.");
+        return;
+      }
+
+      const updates = [];
+      const matchedNames = [];
+
+      students.forEach(student => {
+        const sName = student.name.toLowerCase().trim();
+        const firstName = sName.split(" ")[0];
+
+        // Check if student's full name or first name was spoken
+        if (transcript.includes(sName) || (firstName.length > 2 && transcript.includes(firstName))) {
+          // Identify if absent or present is mentioned near the name
+          const nameIndex = transcript.indexOf(firstName);
+          const segment = transcript.substring(Math.max(0, nameIndex - 15), Math.min(transcript.length, nameIndex + 30));
+
+          let assignedStatus = "Present"; // Default
+          if (segment.includes("absent") || segment.includes("not came") || segment.includes("leave")) {
+            assignedStatus = "Absent";
+          }
+
+          updates.push({
+            student_id: student.id,
+            record_date: selectedAttendanceDate,
+            status: assignedStatus
+          });
+
+          matchedNames.push(`${student.name}: ${assignedStatus}`);
+        }
+      });
+
+      if (updates.length > 0) {
+        const { error } = await sbClient.from("attendance").upsert(updates, { onConflict: "student_id,record_date" });
+        if (error) {
+          alert("Failed to save voice roll: " + error.message);
+        } else {
+          alert(`🎙️ Voice Attendance Applied:\n\n${matchedNames.join("\n")}`);
+          loadTabContent();
+        }
+      } else {
+        alert(`Heard: "${transcript}"\n\nCould not match any student names. Please enunciate the student's name clearly followed by 'present' or 'absent'.`);
+      }
+    }
+ // ==========================================
+    // TOOL 4: MARKS & ACADEMICS
     // ==========================================
     async function renderAcademicsTab(container) {
       const { data: marks, error } = await sbClient
@@ -874,7 +1013,6 @@ window.filterStudentList = () => {
       `;
     }
 
-    // Modal Mounted Directly in #modalSlot
     window.openAddTestMarksModal = async () => {
       const slot = document.getElementById("modalSlot");
       const { data: students } = await sbClient.from("students").select("id, name, grade_class").eq("is_active", true).order("name");
@@ -950,7 +1088,8 @@ window.filterStudentList = () => {
       slot.innerHTML = '';
       slot.appendChild(modal);
     };
-window.toggleTestEntryModal = () => openAddTestMarksModal();
+
+    window.toggleTestEntryModal = () => openAddTestMarksModal();
 
     window.addSubjectRow = () => {
       const c = document.getElementById("subjectRowsContainer");
@@ -1031,8 +1170,7 @@ window.toggleTestEntryModal = () => openAddTestMarksModal();
       if (modalContainer) modalContainer.remove();
       loadTabContent();
     };
-
-    // ==========================================
+// ==========================================
     // TOOL 5: ADVANCED COMPREHENSIVE REPORTS
     // ==========================================
     let currentReportPayload = null;
@@ -1241,7 +1379,8 @@ window.toggleTestEntryModal = () => openAddTestMarksModal();
         </div>
       `;
     };
-window.sendReportWhatsApp = () => {
+
+    window.sendReportWhatsApp = () => {
       if (!currentReportPayload) return;
       const { student, fees, attendance, tests } = currentReportPayload;
 
@@ -1269,8 +1408,7 @@ window.sendReportWhatsApp = () => {
           });
         });
       }
-
-      const message = 
+const message = 
 `*VIDYATRACK ACADEMY - PROGRESS REPORT*
 ----------------------------------------
 *Student:* ${student.name} (${student.grade_class})
