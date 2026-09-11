@@ -26,9 +26,9 @@
     const SUPABASE_URL = "https://potwcgsmaogmnqbktftm.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBvdHdjZ3NtYW9nbW5xYmt0ZnRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5NTQ3OTIsImV4cCI6MjEwNDUzMDc5Mn0.8Tn1cVEbID48PvAOqztUY2sNDDrDBBgYH4V9zH1ksZ8";
 
-    let sbClient = null;
+    let sbClient = null; window.sbClient = null;
     try {
-      if (window.supabase) sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      if (window.supabase) sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); window.sbClient = sbClient;
     } catch (e) { console.error("Supabase init error", e); }
 
     const app = document.getElementById("app");
@@ -1377,6 +1377,6 @@ Kindly review your child's progress report. Thank you!`;
 
     startApp();
   </script>
-  <script src="plugins.js?v=999"></script>
+  <script src="plugins.js?v=final1"></script>
 </body>
 </html>
